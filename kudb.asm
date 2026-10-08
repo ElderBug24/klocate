@@ -80,28 +80,30 @@ segment readable executable
 
     mov r15, rax
 
-    mov rdx, rax
-    mov rax, __NR_write
-    mov rdi, [filebuf_fd_out_buf]
     mov rsi, rsp
-    syscall
+    mov rcx, rax
+    mov rdi, filebuf_buffer_out_buf
+    mov rbx, filebuf_size_out_buf
+    call filebuf_write_fn
 
     cmp byte [rsp + r15 - 1], _char_slash
     je @f
 
-    mov rax, __NR_write
-    mov rdi, [filebuf_fd_out_buf]
-    mov rsi, char_slash
-    mov rdx, 1
-    syscall
+    mov al, _char_slash
+    mov rdi, filebuf_buffer_out_buf
+    mov rbx, filebuf_size_out_buf
+    call filebuf_write_1_fn
 
     @@:
 
-    mov rax, __NR_write
-    mov rdi, [filebuf_fd_out_buf]
-    mov rsi, char_null
-    mov rdx, 1
-    syscall
+    mov al, _char_null
+    mov rdi, filebuf_buffer_out_buf
+    mov rbx, filebuf_size_out_buf
+    call filebuf_write_1_fn
+
+    mov rsi, filebuf_buffer_out_buf
+    mov rdx, [filebuf_len_out_buf]
+    call filebuf_flush_fn
 
     add rsp, realpath_buf_size
 
