@@ -254,11 +254,9 @@ segment readable executable
         je walker_unknown
         walker_unknown_back:
 
-        mov rax, __NR_write
-        mov rdi, [filebuf_fd_out_buf]
         lea rsi, [r13 + 19]
-        lea rdx, [rcx + 1]
-        syscall
+        inc rcx
+        filebuf_write out_buf
 
         mov rsi, r13
 
@@ -271,17 +269,11 @@ segment readable executable
 
         walker_ent_loop_dir:
 
-        mov rax, __NR_write
-        mov rdi, [filebuf_fd_out_buf]
         lea rsi, [r13 + 19]
-        mov rdx, rcx
-        syscall
+        filebuf_write out_buf
 
-        mov rax, __NR_write
-        mov rdi, [filebuf_fd_out_buf]
-        mov rsi, char_slash_null
-        mov rdx, 2
-        syscall
+        mov ax, (_char_slash + (_char_null shl 8))
+        filebuf_write_2 out_buf
 
         mov rax, __NR_openat
         mov rdi, r12
@@ -324,11 +316,8 @@ segment readable executable
 
     walker_loop_end:
 
-    mov rax, __NR_write
-    mov rdi, [filebuf_fd_out_buf]
-    mov rsi, char_slash
-    mov rdx, 1
-    syscall
+    mov al, _char_slash
+    filebuf_write_1 out_buf
 
     mov rsp, rbp
     pop rbp
@@ -358,11 +347,8 @@ segment readable executable
 
     walker_on_openat_err:
 
-      mov rax, __NR_write
-      mov rdi, [filebuf_fd_out_buf]
-      mov rsi, char_slash
-      mov rdx, 1
-      syscall
+      mov al, _char_slash
+      filebuf_write_1 out_buf
 
       mov rsi, r13
 
