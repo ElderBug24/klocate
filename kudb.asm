@@ -7,7 +7,8 @@ include "filebuf.inc"
 
 _pagesize = 4096
 realpath_buf_size = (4 * _pagesize)
-dents_buf_size = 8192
+dents_buf_size = (2 * _pagesize)
+out_buf_size = (8 * _pagesize)
 
 segment readable executable
 
@@ -82,9 +83,7 @@ segment readable executable
 
     mov rsi, rsp
     mov rcx, rax
-    mov rdi, filebuf_buffer_out_buf
-    mov rbx, filebuf_size_out_buf
-    call filebuf_write_fn
+    filebuf_write out_buf
 
     cmp byte [rsp + r15 - 1], _char_slash
     je @f
@@ -193,8 +192,6 @@ segment readable executable
       mov rax, __NR_exit
       mov edi, 1
       syscall
-
-      filebuf_write out_buf
 
   ; r12 : fd
   walker:
@@ -387,7 +384,7 @@ segment readable writeable
   path_root_dir dq default_path_root_dir
   path_out_db dq default_path_out_db
 
-  statbuf rb 144 ; struct stat
+  filebuf_decl out_buf, out_buf_size
 
-  filebuf_decl out_buf, 32768
+  statbuf rb 144 ; struct stat
 
