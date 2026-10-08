@@ -13,7 +13,7 @@ macro filebuf_decl name, size {
 
 ; rsi : source
 ; rcx : count
-; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r10
+; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
 macro filebuf_write name {
 
   local back
@@ -22,7 +22,6 @@ macro filebuf_write name {
   mov r9, rcx
   lea r10, [back]
   mov rsi, filebuf_buffer_#name
-  mov edi, dword [filebuf_fd_#name]
 
   mov rdx, [filebuf_len_#name]
   lea rax, [rdx + rcx]
@@ -43,25 +42,263 @@ macro filebuf_write name {
 
 }
 
+; al : char
+; destroys : rax, rcx, rsi, rdi, r8, r10, r11
+macro filebuf_write_1 name {
+
+  local back
+
+  mov r8, rax
+  lea r10, [back]
+  mov rsi, filebuf_buffer_#name
+
+  cmp [filebuf_len_#name], filebuf_size_#name
+
+  je filebuf_flush
+
+  back:
+
+  mov rax, r8
+  mov rdi, filebuf_buffer_#name
+  add rdi, qword [filebuf_len_#name]
+  mov byte [rdi], al
+
+  inc qword [filebuf_len_#name]
+
+}
+
+; ax : chars
+; destroys : rax, rcx, rsi, rdi, r8, r10, r11
+macro filebuf_write_2 name {
+
+  local back
+
+  mov r8, rax
+  lea r10, [back]
+  mov rsi, filebuf_buffer_#name
+
+  cmp [filebuf_len_#name], (filebuf_size_#name - 1)
+
+  jae filebuf_flush
+
+  back:
+
+  mov rax, r8
+  mov rdi, filebuf_buffer_#name
+  add rdi, qword [filebuf_len_#name]
+  mov word [rdi], ax
+
+  add qword [filebuf_len_#name], 2
+
+}
+
+; eax : chars
+; destroys : rax, rcx, rsi, rdi, r8, r10, r11
+macro filebuf_write_4 name {
+
+  local back
+
+  mov r8, rax
+  lea r10, [back]
+  mov rsi, filebuf_buffer_#name
+
+  cmp [filebuf_len_#name], (filebuf_size_#name - 3)
+
+  jae filebuf_flush
+
+  back:
+
+  mov rax, r8
+  mov rdi, filebuf_buffer_#name
+  add rdi, qword [filebuf_len_#name]
+  mov dword [rdi], eax
+
+  add qword [filebuf_len_#name], 4
+
+}
+
+; rax : chars
+; destroys : rax, rcx, rsi, rdi, r8, r10, r11
+macro filebuf_write_8 name {
+
+  local back
+
+  mov r8, rax
+  lea r10, [back]
+  mov rsi, filebuf_buffer_#name
+
+  cmp [filebuf_len_#name], (filebuf_size_#name - 7)
+
+  jae filebuf_flush
+
+  back:
+
+  mov rax, r8
+  mov rdi, filebuf_buffer_#name
+  add rdi, qword [filebuf_len_#name]
+  mov qword [rdi], rax
+
+  add qword [filebuf_len_#name], 8
+
+}
+
 segment readable executable
 
   ; rsi : buffer
-  ; rdi : fd
   ; rdx : count
   ; destroys : rax, r11
   filebuf_flush:
 
-    mov qword [rsi - 12], 0
+    mov qword [rsi - 16], 0
 
     mov rax, __NR_write
+    mov rdi, [rsi - 8]
     syscall
 
     jmp r10
 
   filebuf_flush_fn:
 
+    mov qword [rsi - 16], 0
+
     mov rax, __NR_write
+    mov rdi, [rsi - 8]
     syscall
+
+    ret
+
+  ; rsi : source
+  ; rdi : buffer
+  ; rbx : size
+  ; rcx : count
+  ; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
+  filebuf_write_fn:
+
+    mov r8, rsi
+    mov r9, rcx
+    lea r10, [filebuf_write_fn_back]
+    mov rsi, rdi
+
+    mov rdx, [rdi - 16]
+    lea rax, [rdx + rcx]
+    cmp rax, rbx
+
+    ja filebuf_flush
+
+    filebuf_write_fn_back:
+
+    mov rdi, rsi
+    mov rsi, r8
+    mov r8, rdi
+    add rdi, qword [rdi - 16]
+    mov rcx, r9
+    cld
+    rep movsb
+
+    add qword [r8 - 16], r9
+
+    ret
+
+  ; al : char
+  ; rdi : buffer
+  ; rbx : size
+  filebuf_write_1_fn:
+
+    mov r8, rax
+    lea r10, [filebuf_write_1_fn_back]
+    mov rsi, rdi
+
+    cmp [rdi - 16], rbx
+
+    je filebuf_flush
+
+    filebuf_write_1_fn_back:
+
+    mov rax, r8
+    mov rdi, rsi
+    mov r8, rdi
+    add rdi, qword [rdi - 16]
+    mov byte [rdi], al
+
+    inc qword [r8 - 16]
+
+    ret
+
+  ; ax : chars
+  ; rdi : buffer
+  ; rbx : size
+  filebuf_write_2_fn:
+
+    mov r8, rax
+    lea r10, [filebuf_write_2_fn_back]
+    mov rsi, rdi
+
+    dec rbx
+    cmp [rdi - 16], rbx
+
+    jae filebuf_flush
+
+    filebuf_write_2_fn_back:
+
+    mov rax, r8
+    mov rdi, rsi
+    mov r8, rdi
+    add rdi, qword [rdi - 16]
+    mov word [rdi], ax
+
+    add qword [r8 - 16], 2
+
+    ret
+
+  ; eax : chars
+  ; rdi : buffer
+  ; rbx : size
+  filebuf_write_4_fn:
+
+    mov r8, rax
+    lea r10, [filebuf_write_2_fn_back]
+    mov rsi, rdi
+
+    sub rbx, 3
+    cmp [rdi - 16], rbx
+
+    jae filebuf_flush
+
+    filebuf_write_4_fn_back:
+
+    mov rax, r8
+    mov rdi, rsi
+    mov r8, rdi
+    add rdi, qword [rdi - 16]
+    mov dword [rdi], eax
+
+    add qword [r8 - 16], 4
+
+    ret
+
+  ; rax : chars
+  ; rdi : buffer
+  ; rbx : size
+  filebuf_write_8_fn:
+
+    mov r8, rax
+    lea r10, [filebuf_write_2_fn_back]
+    mov rsi, rdi
+
+    sub rbx, 7
+    cmp [rdi - 16], rbx
+
+    jae filebuf_flush
+
+    filebuf_write_8_fn_back:
+
+    mov rax, r8
+    mov rdi, rsi
+    mov r8, rdi
+    add rdi, qword [rdi - 16]
+    mov qword [rdi], rax
+
+    add qword [r8 - 16], 8
 
     ret
 
