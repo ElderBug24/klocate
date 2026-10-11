@@ -382,7 +382,6 @@ segment readable writeable
   path_root_dir dq default_path_root_dir
   path_out_db dq default_path_out_db
 
-  filebuf_decl out_db_buf, out_db_buf_size
-
+  filebuf_declare out_db_buf, out_db_buf_size
   statbuf rb 144 ; struct stat
 

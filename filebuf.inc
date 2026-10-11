@@ -1,5 +1,5 @@
 
-macro filebuf_decl name, size {
+macro filebuf_declare name, size {
 
   segment readable writeable
 
