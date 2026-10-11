@@ -20,13 +20,13 @@ macro filebuf_write name {
 
   mov r8, rsi
   mov r9, rcx
-  lea r10, [back]
   mov rsi, filebuf_buffer_#name
 
   mov rdx, [filebuf_len_#name]
   lea rax, [rdx + rcx]
   cmp rax, filebuf_size_#name
 
+  lea r10, [back]
   ja filebuf_flush
 
   back:
@@ -49,11 +49,11 @@ macro filebuf_write_1 name {
   local back
 
   mov r8, rax
-  lea r10, [back]
   mov rsi, filebuf_buffer_#name
 
   cmp [filebuf_len_#name], filebuf_size_#name
 
+  lea r10, [back]
   je filebuf_flush
 
   back:
@@ -74,11 +74,11 @@ macro filebuf_write_2 name {
   local back
 
   mov r8, rax
-  lea r10, [back]
   mov rsi, filebuf_buffer_#name
 
   cmp [filebuf_len_#name], (filebuf_size_#name - 1)
 
+  lea r10, [back]
   jae filebuf_flush
 
   back:
@@ -99,11 +99,11 @@ macro filebuf_write_4 name {
   local back
 
   mov r8, rax
-  lea r10, [back]
   mov rsi, filebuf_buffer_#name
 
   cmp [filebuf_len_#name], (filebuf_size_#name - 3)
 
+  lea r10, [back]
   jae filebuf_flush
 
   back:
@@ -124,11 +124,11 @@ macro filebuf_write_8 name {
   local back
 
   mov r8, rax
-  lea r10, [back]
   mov rsi, filebuf_buffer_#name
 
   cmp [filebuf_len_#name], (filebuf_size_#name - 7)
 
+  lea r10, [back]
   jae filebuf_flush
 
   back:
@@ -139,6 +139,41 @@ macro filebuf_write_8 name {
   mov qword [rdi], rax
 
   add qword [filebuf_len_#name], 8
+
+}
+
+; ax : chars
+; rsi : source
+; rcx : count
+macro filebuf_write_and_2 name {
+
+  local back
+
+  mov r8, rsi
+  mov r9, rcx
+  mov rbx, rax
+  mov rsi, filebuf_buffer_#name
+
+  mov rdx, [filebuf_len_#name]
+  lea rax, [rdx + rcx + 2]
+  cmp rax, filebuf_size_#name
+
+  lea r10, [back]
+  ja filebuf_flush
+
+  back:
+
+  mov rsi, r8
+  mov rdi, filebuf_buffer_#name
+  add rdi, qword [filebuf_len_#name]
+  mov rcx, r9
+  cld
+  rep movsb
+  mov rax, rbx
+  stosw
+
+  add r9, 2
+  add qword [filebuf_len_#name], r9
 
 }
 
@@ -189,13 +224,13 @@ segment readable executable
 
       mov r8, rsi
       mov r9, rcx
-      lea r10, [filebuf_write_fn_back]
       mov rsi, rdi
 
       mov rdx, [rdi - 16]
       lea rax, [rdx + rcx]
       cmp rax, rbx
 
+      lea r10, [filebuf_write_fn_back]
       ja filebuf_flush
 
       filebuf_write_fn_back:
@@ -222,11 +257,11 @@ segment readable executable
     filebuf_write_1_fn:
 
       mov r8, rax
-      lea r10, [filebuf_write_1_fn_back]
       mov rsi, rdi
 
       cmp [rdi - 16], rbx
 
+      lea r10, [filebuf_write_1_fn_back]
       je filebuf_flush
 
       filebuf_write_1_fn_back:
@@ -251,12 +286,12 @@ segment readable executable
     filebuf_write_2_fn:
 
       mov r8, rax
-      lea r10, [filebuf_write_2_fn_back]
       mov rsi, rdi
 
       dec rbx
       cmp [rdi - 16], rbx
 
+      lea r10, [filebuf_write_2_fn_back]
       jae filebuf_flush
 
       filebuf_write_2_fn_back:
@@ -281,12 +316,12 @@ segment readable executable
     filebuf_write_4_fn:
 
       mov r8, rax
-      lea r10, [filebuf_write_2_fn_back]
       mov rsi, rdi
 
       sub rbx, 3
       cmp [rdi - 16], rbx
 
+      lea r10, [filebuf_write_2_fn_back]
       jae filebuf_flush
 
       filebuf_write_4_fn_back:
@@ -311,12 +346,12 @@ segment readable executable
     filebuf_write_8_fn:
 
       mov r8, rax
-      lea r10, [filebuf_write_2_fn_back]
       mov rsi, rdi
 
       sub rbx, 7
       cmp [rdi - 16], rbx
 
+      lea r10, [filebuf_write_2_fn_back]
       jae filebuf_flush
 
       filebuf_write_8_fn_back:

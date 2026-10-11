@@ -8,13 +8,13 @@ include "filebuf.inc"
 _pagesize = 4096
 realpath_buf_size = (4 * _pagesize)
 dents_buf_size = (2 * _pagesize)
-out_buf_size = (8 * _pagesize)
+out_db_buf_size = (8 * _pagesize)
 
 segment readable executable
 
   start:
 
-    mov dword [filebuf_fd_out_buf], -1
+    mov dword [filebuf_fd_out_db_buf], -1
 
     cmp qword [rsp], 1
     je args_parsing_end
@@ -59,7 +59,7 @@ segment readable executable
     cmp rax, -4096
     mov rdi, [path_out_db]
     ja exit_failure_errno_path
-    mov [filebuf_fd_out_buf], rax
+    mov [filebuf_fd_out_db_buf], rax
 
     mov rax, __NR_openat
     mov rdi, AT_FDCWD
@@ -83,25 +83,25 @@ segment readable executable
 
     mov rsi, rsp
     mov rcx, rax
-    filebuf_write out_buf
+    filebuf_write out_db_buf
 
     cmp byte [rsp + r15 - 1], _char_slash
     je @f
 
     mov al, _char_slash
-    mov rdi, filebuf_buffer_out_buf
-    mov rbx, filebuf_size_out_buf
+    mov rdi, filebuf_buffer_out_db_buf
+    mov rbx, filebuf_size_out_db_buf
     call filebuf_write_1_fn
 
     @@:
 
     mov al, _char_null
-    mov rdi, filebuf_buffer_out_buf
-    mov rbx, filebuf_size_out_buf
+    mov rdi, filebuf_buffer_out_db_buf
+    mov rbx, filebuf_size_out_db_buf
     call filebuf_write_1_fn
 
-    mov rsi, filebuf_buffer_out_buf
-    mov rdx, [filebuf_len_out_buf]
+    mov rsi, filebuf_buffer_out_db_buf
+    mov rdx, [filebuf_len_out_db_buf]
     call filebuf_flush_fn
 
     add rsp, realpath_buf_size
@@ -109,9 +109,9 @@ segment readable executable
     call walker
 
     mov rax, __NR_write
-    mov rsi, filebuf_buffer_out_buf
-    mov rdi, [filebuf_fd_out_buf]
-    mov rdx, [filebuf_len_out_buf]
+    mov rsi, filebuf_buffer_out_db_buf
+    mov rdi, [filebuf_fd_out_db_buf]
+    mov rdx, [filebuf_len_out_db_buf]
     syscall
 
     mov rax, __NR_exit
@@ -199,7 +199,7 @@ segment readable executable
     push rbp
     mov rbp, rsp
 
-    sub rsp, dents_buf_size
+    sub rsp, (dents_buf_size + 1) ; room to check for ".\0" or "..\0"
 
     walker_loop:
 
@@ -209,7 +209,7 @@ segment readable executable
       mov rax, __NR_getdents64
       mov rdi, r12
       mov rsi, rsp
-      mov rdx, (dents_buf_size - 1) ; room to check for ".\0" or "..\0"
+      mov rdx, dents_buf_size
       syscall
 
       test rax, rax
@@ -253,7 +253,7 @@ segment readable executable
 
         lea rsi, [r13 + 19]
         inc rcx
-        filebuf_write out_buf
+        filebuf_write out_db_buf
 
         mov rsi, r13
 
@@ -266,11 +266,9 @@ segment readable executable
 
         walker_ent_loop_dir:
 
-        lea rsi, [r13 + 19]
-        filebuf_write out_buf
-
         mov ax, (_char_slash + (_char_null shl 8))
-        filebuf_write_2 out_buf
+        lea rsi, [r13 + 19]
+        filebuf_write_and_2 out_db_buf
 
         mov rax, __NR_openat
         mov rdi, r12
@@ -314,7 +312,7 @@ segment readable executable
     walker_loop_end:
 
     mov al, _char_slash
-    filebuf_write_1 out_buf
+    filebuf_write_1 out_db_buf
 
     mov rsp, rbp
     pop rbp
@@ -345,7 +343,7 @@ segment readable executable
     walker_on_openat_err:
 
       mov al, _char_slash
-      filebuf_write_1 out_buf
+      filebuf_write_1 out_db_buf
 
       mov rsi, r13
 
@@ -384,7 +382,7 @@ segment readable writeable
   path_root_dir dq default_path_root_dir
   path_out_db dq default_path_out_db
 
-  filebuf_decl out_buf, out_buf_size
+  filebuf_decl out_db_buf, out_db_buf_size
 
   statbuf rb 144 ; struct stat
 
