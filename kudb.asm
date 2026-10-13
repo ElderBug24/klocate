@@ -65,6 +65,7 @@ segment readable executable
     cmp rax, -4096
     mov rdi, [path_out_db]
     ja exit_failure_errno_path
+    mov [out_db_fd], rax
     mov [filebufs + 24], rax
 
     mov rax, __NR_openat
@@ -173,10 +174,20 @@ segment readable executable
       ja exit_failure_errno
 
       test rax, rax
-      jz child_func
+      jz thread_entry
 
       dec r13
       jnz thread_spawn_loop
+
+    mov rax, __NR_memfd_create
+    mov rdi, tmpfile_debug_name
+    xor rsi, rsi
+    syscall
+
+    cmp rax, -4096
+    ja exit_failure_errno
+
+    mov [filebufs + 24], rax
 
     wait_loop:
 
@@ -197,6 +208,8 @@ segment readable executable
     @@:
 
     call walker
+
+    thread_last:
 
     mov rax, __NR_write
     mov rsi, [filebufs]
@@ -283,20 +296,42 @@ segment readable executable
       mov edi, 1
       syscall
 
-  child_exit:
+  thread_exit:
 
     mov rax, __NR_exit
     xor edi, edi
     syscall
 
-  child_func:
+  thread_entry:
 
-    mov rax, [rsp]
-    mov qword [rsp], child_exit
+    imul r15, [rsp], filebuf_struct_size
+    mov qword [rsp], thread_exit
 
-    dispatch_worker_idle r12, rax
+    mov rax, __NR_memfd_create
+    mov rdi, tmpfile_debug_name
+    xor rsi, rsi
+    syscall
 
-    ret
+    cmp rax, -4096
+    ja exit_failure_errno
+
+    mov [filebufs + r15 + 24], rax
+
+    jmp @f
+
+    thread_sleep:
+
+      mov rax, [dispatch_count]
+      inc rax
+      cmp rax, [threads_count]
+
+      je thread_last
+
+    @@:
+
+    dispatch_worker_idle r12, r15
+
+    ; fallthrough
 
   ; r12 : fd
   walker:
@@ -480,6 +515,8 @@ segment readable
   default_path_out_db_dir db "/var/cache/klocate", 0
   default_path_out_db db "/var/cache/klocate/db", 0
 
+  tmpfile_debug_name db "tmpfile", 0
+
 segment readable writeable
 
   dispatch_declare max_threads
@@ -490,6 +527,8 @@ segment readable writeable
 
   timeout dq 0
           dq 1000000
+
+  out_db_fd dq -1
 
   path_root_dir dq default_path_root_dir
   path_out_db dq default_path_out_db
