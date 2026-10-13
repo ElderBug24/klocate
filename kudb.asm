@@ -99,8 +99,6 @@ segment readable executable
     @@:
 
       mov [filebufs + rcx], rax
-      mov [filebufs + rcx + 8], filebuf_size
-      mov [filebufs + rcx + 16], 0
       add rax, filebuf_size
 
       sub rcx, filebuf_struct_size
@@ -164,10 +162,7 @@ segment readable executable
       mov [rsi], r13
 
       mov rax, __NR_clone
-      mov rdi, (CLONE_PARENT_SETTID or CLONE_CHILD_CLEARTID or CLONE_FILES or CLONE_FS or CLONE_THREAD or CLONE_SIGHAND or CLONE_VM)
-      lea rdx, [tid + 4 * r13 - 4]
-      mov r10, rdx
-      xor r8, r8
+      mov rdi, (CLONE_FILES or CLONE_FS or CLONE_THREAD or CLONE_SIGHAND or CLONE_VM)
       syscall
 
       cmp rax, -4096
@@ -207,15 +202,25 @@ segment readable executable
 
     @@:
 
-    call walker
+    mov rax, thread_sleep
+    push rax
+    jmp walker
 
     thread_last:
 
-    mov rax, __NR_write
-    mov rsi, [filebufs]
-    mov rdi, [filebufs + 24]
-    mov rdx, [filebufs + 16]
-    syscall
+    imul rbx, [threads_count], filebuf_struct_size
+    sub rbx, filebuf_struct_size
+
+    @@:
+
+      mov rax, __NR_write
+      mov rsi, [filebufs + rbx]
+      mov rdi, [filebufs + rbx + 24]
+      mov rdx, [filebufs + rbx + 16]
+      syscall
+
+      sub rbx, filebuf_struct_size
+      jns @b
 
     mov rax, __NR_exit_group
     xor edi, edi
@@ -305,7 +310,7 @@ segment readable executable
   thread_entry:
 
     imul r15, [rsp], filebuf_struct_size
-    mov qword [rsp], thread_exit
+    mov qword [rsp], thread_sleep
 
     mov rax, __NR_memfd_create
     mov rdi, tmpfile_debug_name
@@ -344,7 +349,7 @@ segment readable executable
     walker_loop:
 
       mov word [rsp + (dents_buf_size - 2)], -1
-      assert ~ (_char_null = -1) & ~ (_char_slash = -1)
+      assert ~(_char_null = -1) & ~(_char_slash = -1)
 
       mov rax, __NR_getdents64
       mov rdi, r12
@@ -393,6 +398,7 @@ segment readable executable
 
         lea rsi, [r13 + 19]
         inc rcx
+        add qword [tfoffsets + r15 + 8], rcx
         filebuf_write
 
         mov rsi, r13
@@ -408,6 +414,9 @@ segment readable executable
 
         mov ax, (_char_slash + (_char_null shl 8))
         lea rsi, [r13 + 19]
+        mov rbx, rcx
+        add rbx, 2
+        add qword [tfoffsets + r15 + 8], rbx
         filebuf_write_and_2
 
         mov rax, __NR_openat
@@ -452,6 +461,7 @@ segment readable executable
     walker_loop_end:
 
     mov al, _char_slash
+    inc qword [tfoffsets + r15 + 8]
     filebuf_write_1
 
     mov rsp, rbp
@@ -483,6 +493,7 @@ segment readable executable
     walker_on_openat_err:
 
       mov al, _char_slash
+      inc qword [tfoffsets + r15 + 8]
       filebuf_write_1
 
       mov rsi, r13
@@ -521,8 +532,6 @@ segment readable writeable
 
   dispatch_declare max_threads
 
-  tid rd (max_threads - 1)
-
   align 8
 
   timeout dq 0
@@ -534,6 +543,9 @@ segment readable writeable
   path_out_db dq default_path_out_db
   threads_count dq max_threads
 
-  filebufs rq (4 * (max_threads - 1))
+  assert (filebuf_struct_size = 32)
+  filebufs dq max_threads dup (0, filebuf_size, 0, -1)
+  tfoffsets dq max_threads dup (0, 0, ?, ?) ; 32 bytes padded
+
   statbuf rb 144 ; struct stat
 
