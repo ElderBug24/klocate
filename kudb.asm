@@ -390,27 +390,27 @@ segment readable executable
       test rax, rax
       jz walker_loop_end
 
-      mov rsi, rsp
+      mov r13, rsp
       mov r14, rsp
       add r14, rax
 
       walker_ent_loop:
 
-        cmp byte [rsi + 19], _char_dot
+        cmp byte [r13 + 19], _char_dot
         sete bl
         mov edx, ebx
-        cmp byte [rsi + 20], _char_null
+        cmp byte [r13 + 20], _char_null
         sete bh
         and bl, bh
 
-        cmp word [rsi + 20], _char_dot ; ".\0"
+        cmp word [r13 + 20], _char_dot ; ".\0"
         sete bh
         and dl, bh
 
         or bl, dl
         jnz walker_ent_loop_skip
 
-        lea rdi, [rsi + 19]
+        lea rdi, [r13 + 19]
         xor rax, rax
         mov rcx, -1
         cld
@@ -418,11 +418,9 @@ segment readable executable
         not rcx
         dec rcx
 
-        mov r13, rsi
-
-        cmp byte [rsi + 18], DT_DIR
+        cmp byte [r13 + 18], DT_DIR
         je walker_ent_loop_dir
-        cmp byte [rsi + 18], DT_UNKNOWN
+        cmp byte [r13 + 18], DT_UNKNOWN
         je walker_unknown
         walker_unknown_back:
 
@@ -431,12 +429,10 @@ segment readable executable
         add [tfoffsets + r15 + 8], rcx
         filebuf_write
 
-        mov rsi, r13
+        movzx rax, word [r13 + 16]
+        add r13, rax
 
-        movzx rax, word [rsi + 16]
-        add rsi, rax
-
-        cmp rsi, r14
+        cmp r13, r14
         jne walker_ent_loop
         jmp walker_ent_loop_end
 
@@ -455,16 +451,19 @@ segment readable executable
         mov rdx, (O_RDONLY or O_NOATIME or O_DIRECTORY)
         syscall
 
-        mov rsi, r13
-
         cmp rax, -4096
         ja walker_on_openat_err
+
+        mov r10, rax
+        dispatch_try_dispatch rax, rbx, r10
+        test rax, rax
+        jnz walker_dispatch
 
         push r12
         push r13
         push r14
 
-        mov r12, rax
+        mov r12, r10
 
         call walker
 
@@ -473,15 +472,15 @@ segment readable executable
         syscall
 
         pop r14
-        pop rsi
+        pop r13
         pop r12
 
         walker_ent_loop_skip:
 
-        movzx rax, word [rsi + 16]
-        add rsi, rax
+        movzx rax, word [r13 + 16]
+        add r13, rax
 
-        cmp rsi, r14
+        cmp r13, r14
         jne walker_ent_loop
 
         walker_ent_loop_end:
@@ -527,6 +526,20 @@ segment readable executable
       filebuf_write_1
 
       mov rsi, r13
+
+      jmp walker_ent_loop_skip
+
+    walker_dispatch:
+
+      mov rax, __NR_pwrite64
+      mov rdi, [filebufs + r15 + 24]
+      lea rsi, [tfoffsets + r15 + 8]
+      mov rdx, 8
+      mov r10, [tfoffsets + r15]
+      syscall
+
+      mov al, action_dispatch
+      filebuf_write_1_and_8_and_skip_n 8
 
       jmp walker_ent_loop_skip
 
