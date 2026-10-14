@@ -28,7 +28,7 @@ macro filebuf_write {
   back:
 
   mov rdi, [filebufs + r15]
-  add rdi, qword [filebufs + r15 + 16]
+  add rdi, qword [rdi + 16]
   mov rsi, r8
   mov rcx, r9
   cld
@@ -48,17 +48,17 @@ macro filebuf_write_1 {
   mov r8, rax
   lea rsi, [filebufs + r15]
 
-  mov rdx, [rsi + r15 + 16]
+  mov rdx, [rsi + 16]
   lea rax, [rdx + 1]
-  cmp rax, [rsi + r15 + 8]
+  cmp rax, [rsi + 8]
 
   mov r10, back
-  je filebuf_flush
+  ja filebuf_flush
 
   back:
 
   mov rdi, [filebufs + r15]
-  add rdi, qword [filebufs + r15 + 16]
+  add rdi, qword [rdi + 16]
   mov rax, r8
   mov byte [rdi], al
 
@@ -80,9 +80,9 @@ macro filebuf_write_and_2 {
   mov rbx, rax
   lea rsi, [filebufs + r15]
 
-  mov rdx, [rsi + r15 + 16]
+  mov rdx, [rsi + 16]
   lea rax, [rdx + rcx + 2]
-  cmp rax, [rsi + r15 + 8]
+  cmp rax, [rsi + 8]
 
   mov r10, back
   ja filebuf_flush
@@ -90,7 +90,7 @@ macro filebuf_write_and_2 {
   back:
 
   mov rdi, [filebufs + r15]
-  add rdi, qword [filebufs + r15 + 16]
+  add rdi, qword [rdi + 16]
   mov rsi, r8
   mov rcx, r9
   cld
@@ -113,17 +113,17 @@ macro filebuf_write_1_and_skip_n n {
   mov r8, rax
   lea rsi, [filebufs + r15]
 
-  mov rdx, [rsi + r15 + 16]
+  mov rdx, [rsi + 16]
   lea rax, [rdx + 1 + n]
-  cmp rax, [rsi + r15 + 8]
+  cmp rax, [rsi + 8]
 
   mov r10, back
-  je filebuf_flush
+  ja filebuf_flush
 
   back:
 
   mov rdi, [filebufs + r15]
-  add rdi, qword [filebufs + r15 + 16]
+  add rdi, qword [rdi + 16]
   mov rax, r8
   mov byte [rdi], al
 
@@ -135,7 +135,7 @@ macro filebuf_write_1_and_skip_n n {
 ; rbx : chars
 ; r15 : id * 32
 ; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
-macro filebuf_write_1_and_8_and_skip_n n {
+macro filebuf_write_1_and_8 {
 
   local back
 
@@ -143,23 +143,23 @@ macro filebuf_write_1_and_8_and_skip_n n {
   mov r9, rbx
   lea rsi, [filebufs + r15]
 
-  mov rdx, [rsi + r15 + 16]
-  lea rax, [rdx + 9 + n]
-  cmp rax, [rsi + r15 + 8]
+  mov rdx, [rsi + 16]
+  lea rax, [rdx + 9]
+  cmp rax, [rsi + 8]
 
   mov r10, back
-  je filebuf_flush
+  ja filebuf_flush
 
   back:
 
   mov rdi, [filebufs + r15]
-  add rdi, qword [filebufs + r15 + 16]
+  add rdi, qword [rdi + 16]
   mov rax, r8
   mov byte [rdi], al
   mov rbx, r9
   mov qword [rdi + 1], rbx
 
-  add qword [filebufs + r15 + 16], (9 + n)
+  add qword [filebufs + r15 + 16], 9
 
 }
 

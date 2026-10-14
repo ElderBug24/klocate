@@ -34,9 +34,9 @@ macro dispatch_lock_state {
 ; reg64_task : 64 bit register
 ; reg64_id : 64 bit register containing worker id
 ; destroys : rax, rcx, rdx, rsi, rdi, r10, r11, reg64_task (containing dispatched task)
-macro dispatch_worker_idle reg64_task, reg64_id {
+macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_label {
 
-  local wait, woken
+  local wait, woken, last
 
   sub rsp, 24
   mov dword [rsp], 0
@@ -48,6 +48,8 @@ macro dispatch_worker_idle reg64_task, reg64_id {
   mov rax, [dispatch_count]
   mov [dispatch_stack + 8 * rax], rsp
   inc rax
+  cmp rax, [threads_count_ptr]
+  je last
   mov [dispatch_count], rax
   mov [dispatch_lock], 0
 
@@ -64,6 +66,12 @@ macro dispatch_worker_idle reg64_task, reg64_id {
     syscall
 
     jmp wait
+
+  last:
+
+  mov [dispatch_lock], 0
+  add rsp, 24
+  jmp thread_last_label
 
   woken:
 
