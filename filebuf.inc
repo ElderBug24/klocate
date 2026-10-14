@@ -5,11 +5,9 @@
 ; len rq 1
 ; fd rq 1
 
-filebuf_struct_size = 32
-
 ; rsi : source
 ; rcx : count
-; r15 : id * filebuf_struct_size
+; r15 : id * 32
 ; destroys: rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
 macro filebuf_write {
 
@@ -23,7 +21,7 @@ macro filebuf_write {
   lea rax, [rdx + rcx]
   cmp rax, [rsi + 8]
 
-  lea r10, [back]
+  mov r10, back
 
   ja filebuf_flush
 
@@ -41,7 +39,7 @@ macro filebuf_write {
 }
 
 ; al : char
-; r15 : id * filebuf_struct_size
+; r15 : id * 32
 ; destroys : rax, rcx, rdx, rsi, rdi, r8, r10, r11
 macro filebuf_write_1 {
 
@@ -54,7 +52,7 @@ macro filebuf_write_1 {
   lea rax, [rdx + 1]
   cmp rax, [rsi + r15 + 8]
 
-  lea r10, [back]
+  mov r10, back
   je filebuf_flush
 
   back:
@@ -71,7 +69,7 @@ macro filebuf_write_1 {
 ; ax : chars
 ; rsi : source
 ; rcx : count
-; r15 : id * filebuf_struct_size
+; r15 : id * 32
 ; destroys : rax, rbx, rcx, rdx, rsi, rdi, r8, r9, r10, r11
 macro filebuf_write_and_2 {
 
@@ -86,7 +84,7 @@ macro filebuf_write_and_2 {
   lea rax, [rdx + rcx + 2]
   cmp rax, [rsi + r15 + 8]
 
-  lea r10, [back]
+  mov r10, back
   ja filebuf_flush
 
   back:
@@ -102,6 +100,34 @@ macro filebuf_write_and_2 {
 
   add r9, 2
   add qword [filebufs + r15 + 16], r9
+
+}
+
+; al : char
+; r15 : id * 32
+; destroys : rax, rcx, rdx, rsi, rdi, r8, r10, r11
+macro filebuf_write_1_and_skip_n n {
+
+  local back
+
+  mov r8, rax
+  lea rsi, [filebufs + r15]
+
+  mov rdx, [rsi + r15 + 16]
+  lea rax, [rdx + 1 + n]
+  cmp rax, [rsi + r15 + 8]
+
+  mov r10, back
+  je filebuf_flush
+
+  back:
+
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 16]
+  mov rax, r8
+  mov byte [rdi], al
+
+  add qword [filebufs + r15 + 16], (1 + n)
 
 }
 

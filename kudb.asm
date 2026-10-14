@@ -1,6 +1,7 @@
 format ELF64 executable 3
 entry start
 
+_errno_compact = 1
 include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
@@ -8,10 +9,13 @@ include "dispatch.inc"
 
 _pagesize = 4096
 realpath_buf_size = (4 * _pagesize)
-dents_buf_size = (2 * _pagesize)
-filebuf_size = (8 * _pagesize)
+dents_buf_size    = (2 * _pagesize)
+filebuf_size      = (8 * _pagesize)
 max_threads = 4
 thread_initial_stack_size = (4 * _pagesize)
+
+action_work     = 0
+action_dispatch = 1
 
 segment readable executable
 
@@ -93,15 +97,15 @@ segment readable executable
     cmp eax, -4096
     ja exit_failure_errno
 
-    imul rcx, [threads_count], filebuf_struct_size
-    sub rcx, filebuf_struct_size
+    imul rcx, [threads_count], 32
+    sub rcx, 32
 
     @@:
 
       mov [filebufs + rcx], rax
       add rax, filebuf_size
 
-      sub rcx, filebuf_struct_size
+      sub rcx, 32
       jns @b
 
     xor r15, r15
@@ -184,6 +188,12 @@ segment readable executable
 
     mov [filebufs + 24], rax
 
+    mov al, action_work
+    filebuf_write_1_and_skip_n 8
+
+    mov rax, thread_sleep
+    push rax
+
     wait_loop:
 
       mov rdx, [dispatch_count]
@@ -202,14 +212,12 @@ segment readable executable
 
     @@:
 
-    mov rax, thread_sleep
-    push rax
     jmp walker
 
     thread_last:
 
-    imul rbx, [threads_count], filebuf_struct_size
-    sub rbx, filebuf_struct_size
+    imul rbx, [threads_count], 32
+    sub rbx, 32
 
     @@:
 
@@ -219,7 +227,7 @@ segment readable executable
       mov rdx, [filebufs + rbx + 16]
       syscall
 
-      sub rbx, filebuf_struct_size
+      sub rbx, 32
       jns @b
 
     mov rax, __NR_exit_group
@@ -309,7 +317,7 @@ segment readable executable
 
   thread_entry:
 
-    imul r15, [rsp], filebuf_struct_size
+    imul r15, [rsp], 32
     mov qword [rsp], thread_sleep
 
     mov rax, __NR_memfd_create
@@ -326,15 +334,37 @@ segment readable executable
 
     thread_sleep:
 
+      mov rax, __NR_close
+      mov rdi, r12
+      syscall
+
+      mov rax, __NR_pwrite64
+      mov rdi, [filebufs + r15 + 24]
+      lea rsi, [tfoffsets + r15 + 8]
+      mov rdx, 8
+      mov r10, [tfoffsets + r15]
+      syscall
+
+      mov r12, [tfoffsets + r15 + 8]
+      inc r12
+      mov [tfoffsets + r15], r12
+      mov qword [tfoffsets + r15 + 8], 0
+
       mov rax, [dispatch_count]
       inc rax
       cmp rax, [threads_count]
 
       je thread_last
 
+      mov rax, thread_sleep
+      push rax
+
     @@:
 
     dispatch_worker_idle r12, r15
+
+    mov al, action_work
+    filebuf_write_1_and_skip_n 8
 
     ; fallthrough
 
@@ -398,7 +428,7 @@ segment readable executable
 
         lea rsi, [r13 + 19]
         inc rcx
-        add qword [tfoffsets + r15 + 8], rcx
+        add [tfoffsets + r15 + 8], rcx
         filebuf_write
 
         mov rsi, r13
@@ -416,7 +446,7 @@ segment readable executable
         lea rsi, [r13 + 19]
         mov rbx, rcx
         add rbx, 2
-        add qword [tfoffsets + r15 + 8], rbx
+        add [tfoffsets + r15 + 8], rbx
         filebuf_write_and_2
 
         mov rax, __NR_openat
@@ -502,15 +532,14 @@ segment readable executable
 
 segment readable
 
-  _char_slash = '/'
-  _char_null = 0
+  _char_slash   = '/'
+  _char_null    = 0
   _char_newline = 10
-  _char_dot = '.'
+  _char_dot     = '.'
 
+  char_slash_null:
   char_slash db _char_slash
-  char_null db _char_null
   char_newline db _char_newline
-  char_slash_null = char_slash
 
   path_parent db '.'
   path_current db "./"
@@ -522,9 +551,9 @@ segment readable
   msg_err_too_many_args db "error: Too many arguments", 10
   msg_err_too_many_args_len = $ - msg_err_too_many_args
 
-  default_path_root_dir db "/", 0
+  default_path_root_dir db   "/", 0
   default_path_out_db_dir db "/var/cache/klocate", 0
-  default_path_out_db db "/var/cache/klocate/db", 0
+  default_path_out_db db     "/var/cache/klocate/db", 0
 
   tmpfile_debug_name db "tmpfile", 0
 
@@ -543,7 +572,6 @@ segment readable writeable
   path_out_db dq default_path_out_db
   threads_count dq max_threads
 
-  assert (filebuf_struct_size = 32)
   filebufs dq max_threads dup (0, filebuf_size, 0, -1)
   tfoffsets dq max_threads dup (0, 0, ?, ?) ; 32 bytes padded
 
