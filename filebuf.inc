@@ -5,6 +5,8 @@
 ; len rq 1
 ; fd rq 1
 
+; TODO: write 1 char passed in as macro
+
 ; rsi : source
 ; rcx : count
 ; r15 : id * 32
@@ -27,8 +29,9 @@ macro filebuf_write {
 
   back:
 
-  mov rdi, [filebufs + r15]
-  add rdi, qword [rdi + 16]
+  lea rsi, [filebufs + r15]
+  mov rdi, [rsi]
+  add rdi, qword [rsi + 16]
   mov rsi, r8
   mov rcx, r9
   cld
@@ -57,8 +60,9 @@ macro filebuf_write_1 {
 
   back:
 
-  mov rdi, [filebufs + r15]
-  add rdi, qword [rdi + 16]
+  lea rsi, [filebufs + r15]
+  mov rdi, [rsi]
+  add rdi, qword [rsi + 16]
   mov rax, r8
   mov byte [rdi], al
 
@@ -89,8 +93,9 @@ macro filebuf_write_and_2 {
 
   back:
 
-  mov rdi, [filebufs + r15]
-  add rdi, qword [rdi + 16]
+  lea rsi, [filebufs + r15]
+  mov rdi, [rsi]
+  add rdi, qword [rsi + 16]
   mov rsi, r8
   mov rcx, r9
   cld
@@ -122,8 +127,9 @@ macro filebuf_write_1_and_skip_n n {
 
   back:
 
-  mov rdi, [filebufs + r15]
-  add rdi, qword [rdi + 16]
+  lea rsi, [filebufs + r15]
+  mov rdi, [rsi]
+  add rdi, qword [rsi + 16]
   mov rax, r8
   mov byte [rdi], al
 
@@ -152,8 +158,9 @@ macro filebuf_write_1_and_8 {
 
   back:
 
-  mov rdi, [filebufs + r15]
-  add rdi, qword [rdi + 16]
+  lea rsi, [filebufs + r15]
+  mov rdi, [rsi]
+  add rdi, qword [rsi + 16]
   mov rax, r8
   mov byte [rdi], al
   mov rbx, r9

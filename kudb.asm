@@ -16,6 +16,7 @@ thread_initial_stack_size = (4 * _pagesize)
 
 action_work     = 0
 action_dispatch = 1
+action_end      = 2
 
 segment readable executable
 
@@ -264,7 +265,7 @@ segment readable executable
 
     xor r15, r15
 
-    mov eax, action_work
+    mov rax, thread_last_exit
     push rax
 
     ; r15 : tmpfile index * 32
@@ -278,16 +279,19 @@ segment readable executable
       mov r10, [tfoffsets + r15]
       syscall
 
+      cmp rax, -4096
+      ja exit_failure_errno
       test rax, rax
-      jz thread_last_exit
-
-      add [tfoffsets + r15], rax
+      jz thread_last_rec_ret
 
       mov al, [scratch]
       mov rbx, qword [scratch + 1]
 
-      test al, al
-      jnz thread_last_rec_dispatch
+      cmp al, action_dispatch
+      je thread_last_rec_dispatch
+      ja thread_last_rec_ret
+
+      add [tfoffsets + r15], 9
 
       @@:
 
@@ -323,28 +327,26 @@ segment readable executable
 
         jnz @b
 
-      cmp dword [rsp], action_work
-      je thread_last_rec
-
-      pop rax
-
-      ret
+      jmp thread_last_rec
 
       thread_last_rec_dispatch:
 
-      push r15
-      mov eax, action_dispatch
-      push rax
-      mov r15, rbx
+        add [tfoffsets + r15], 9
 
-      call thread_last_rec
+        push r15
+        mov r15, rbx
 
-      pop r15
+        call thread_last_rec
 
-      mov eax, action_work
-      push rax
+        pop r15
 
-      jmp thread_last_rec
+        jmp thread_last_rec
+
+      thread_last_rec_ret:
+
+        add [tfoffsets + r15], 1
+
+        ret
 
     thread_last_exit:
 
@@ -452,13 +454,16 @@ segment readable executable
 
     mov [filebufs + r15 + 24], rax
 
-    jmp @f
+    jmp thread_sleep_skip
 
     thread_sleep:
 
       mov rax, __NR_close
       mov rdi, r12
       syscall
+
+      mov al, action_end
+      filebuf_write_1
 
       lea rsi, [filebufs + r15]
       mov rdx, [filebufs + r15 + 16]
@@ -475,7 +480,7 @@ segment readable executable
       syscall
 
       mov rax, [tfoffsets + r15 + 8]
-      add rax, 9
+      add rax, 10
       add [tfoffsets + r15], rax
       mov qword [tfoffsets + r15 + 8], 0
 
@@ -488,7 +493,7 @@ segment readable executable
       mov rax, thread_sleep
       push rax
 
-    @@:
+    thread_sleep_skip:
 
     dispatch_worker_idle r12, r15, threads_count, thread_last
 
