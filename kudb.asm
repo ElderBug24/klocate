@@ -20,7 +20,6 @@ action_end      = 2
 
 segment readable executable
 
-  ; TODO: assert every syscall
   start:
 
     mov qword [filebufs + 24], -1
@@ -128,13 +127,11 @@ segment readable executable
     cmp byte [rsp + r14 - 1], _char_slash
     je @f
 
-    mov al, _char_slash
-    filebuf_write_1
+    filebuf_write_1_char _char_slash
 
     @@:
 
-    mov al, _char_null
-    filebuf_write_1
+    filebuf_write_1_char _char_null
 
     mov rsi, filebufs
     mov rdx, [filebufs + 16]
@@ -193,8 +190,7 @@ segment readable executable
 
     mov [filebufs + 24], rax
 
-    mov al, action_work
-    filebuf_write_1_and_skip_n 8
+    filebuf_write_1_char_and_skip_n action_work, 8
 
     mov rax, thread_sleep
     push rax
@@ -235,8 +231,6 @@ segment readable executable
       sub rbx, 32
       jns @b
 
-    ; TODO: open pipes
-
     imul rbx, [threads_count], 32
     sub rbx, 32
 
@@ -258,8 +252,9 @@ segment readable executable
     xor edx, edx
     syscall
 
+    mov rbx, _pagesize
     cmp rax, -4096
-    ja exit_failure_errno
+    cmova rax, rbx
 
     mov r13, rax
 
@@ -269,8 +264,7 @@ segment readable executable
     push rax
 
     ; r15 : tmpfile index * 32
-    thread_last_rec: ; TODO: broken because of stack: [r15][action][rip]
-                     ; and need a action_end when a thread goes to sleep
+    thread_last_rec:
 
       mov rax, __NR_pread64
       mov rdi, [filebufs + r15 + 24]
@@ -281,6 +275,7 @@ segment readable executable
 
       cmp rax, -4096
       ja exit_failure_errno
+
       test rax, rax
       jz thread_last_rec_ret
 
@@ -308,9 +303,6 @@ segment readable executable
         xor r9, r9
         syscall
 
-        cmp rax, -4096
-        ja exit_failure_errno
-
         mov r8, rax
         mov rax, __NR_splice
         mov edi, [pipe_fds]
@@ -319,9 +311,6 @@ segment readable executable
         xor r10, r10
         xor r9, r9
         syscall
-
-        cmp rax, -4096
-        ja exit_failure_errno
 
         sub rbx, rax
 
@@ -462,8 +451,7 @@ segment readable executable
       mov rdi, r12
       syscall
 
-      mov al, action_end
-      filebuf_write_1
+      filebuf_write_1_char action_end
 
       lea rsi, [filebufs + r15]
       mov rdx, [filebufs + r15 + 16]
@@ -497,8 +485,7 @@ segment readable executable
 
     dispatch_worker_idle r12, r15, threads_count, thread_last
 
-    mov al, action_work
-    filebuf_write_1_and_skip_n 8
+    filebuf_write_1_char_and_skip_n action_work, 8
 
     ; fallthrough
 
@@ -574,12 +561,11 @@ segment readable executable
 
         walker_ent_loop_dir:
 
-        mov ax, (_char_slash + (_char_null shl 8))
         lea rsi, [r13 + 19]
         mov rbx, rcx
         add rbx, 2
         add [tfoffsets + r15 + 8], rbx
-        filebuf_write_and_2
+        filebuf_write_and_2_chars (_char_slash + (_char_null shl 8))
 
         mov rax, __NR_openat
         mov rdi, r12
@@ -625,9 +611,8 @@ segment readable executable
 
     walker_loop_end:
 
-    mov al, _char_slash
     inc qword [tfoffsets + r15 + 8]
-    filebuf_write_1
+    filebuf_write_1_char _char_slash
 
     mov rsp, rbp
     pop rbp
@@ -645,6 +630,9 @@ segment readable executable
       mov r10, AT_SYMLINK_NOFOLLOW
       syscall
 
+      cmp rax, -4096
+      ja walker_unknown_back
+
       mov rcx, rbx
 
       mov eax, dword [scratch + 24]
@@ -657,9 +645,8 @@ segment readable executable
 
     walker_on_openat_err:
 
-      mov al, _char_slash
       inc qword [tfoffsets + r15 + 8]
-      filebuf_write_1
+      filebuf_write_1_char _char_slash
 
       mov rsi, r13
 
@@ -686,12 +673,7 @@ segment readable executable
       add [tfoffsets + r15], rax
       mov qword [tfoffsets + r15 + 8], 0
 
-      ; TODO: fuse writes
-      mov al, action_dispatch
-      filebuf_write_1_and_8
-
-      mov al, action_work
-      filebuf_write_1_and_skip_n 8
+      filebuf_write_1_char_and_8_and_1_char_and_skip_n action_dispatch, action_work, 8
 
       jmp walker_ent_loop_skip
 

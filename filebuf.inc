@@ -5,8 +5,6 @@
 ; len rq 1
 ; fd rq 1
 
-; TODO: write 1 char passed in as macro
-
 ; rsi : source
 ; rcx : count
 ; r15 : id * 32
@@ -41,14 +39,12 @@ macro filebuf_write {
 
 }
 
-; al : char
 ; r15 : id * 32
-; destroys : rcx, rdx, rsi, rdi, r8, r10, r11
-macro filebuf_write_1 {
+; destroys : rax, rcx, rdx, rsi, rdi, r10, r11
+macro filebuf_write_1_char c {
 
   local back
 
-  mov r8, rax
   lea rsi, [filebufs + r15]
 
   mov rdx, [rsi + 16]
@@ -63,25 +59,22 @@ macro filebuf_write_1 {
   lea rsi, [filebufs + r15]
   mov rdi, [rsi]
   add rdi, qword [rsi + 16]
-  mov rax, r8
-  mov byte [rdi], al
+  mov byte [rdi], c
 
   inc qword [filebufs + r15 + 16]
 
 }
 
-; ax : chars
 ; rsi : source
 ; rcx : count
 ; r15 : id * 32
-; destroys : rbx, rcx, rdx, rsi, rdi, r8, r9, r10, r11
-macro filebuf_write_and_2 {
+; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
+macro filebuf_write_and_2_chars cs {
 
   local back
 
   mov r8, rsi
   mov r9, rcx
-  mov rbx, rax
   lea rsi, [filebufs + r15]
 
   mov rdx, [rsi + 16]
@@ -100,26 +93,23 @@ macro filebuf_write_and_2 {
   mov rcx, r9
   cld
   rep movsb
-  mov rax, rbx
-  stosw
+  mov dword [rdi], cs
 
   add r9, 2
   add qword [filebufs + r15 + 16], r9
 
 }
 
-; al : char
 ; r15 : id * 32
-; destroys : rcx, rdx, rsi, rdi, r8, r10, r11
-macro filebuf_write_1_and_skip_n n {
+; destroys : rax, rcx, rdx, rsi, rdi, r10, r11
+macro filebuf_write_1_char_and_skip_n c, n {
 
   local back
 
-  mov r8, rax
   lea rsi, [filebufs + r15]
 
   mov rdx, [rsi + 16]
-  lea rax, [rdx + 1 + n]
+  lea rax, [rdx + (1 + n)]
   cmp rax, [rsi + 8]
 
   mov r10, back
@@ -130,22 +120,19 @@ macro filebuf_write_1_and_skip_n n {
   lea rsi, [filebufs + r15]
   mov rdi, [rsi]
   add rdi, qword [rsi + 16]
-  mov rax, r8
-  mov byte [rdi], al
+  mov byte [rdi], c
 
   add qword [filebufs + r15 + 16], (1 + n)
 
 }
 
-; al : char
 ; rbx : chars
 ; r15 : id * 32
-; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
-macro filebuf_write_1_and_8 {
+; destroys : rax, rcx, rdx, rsi, rdi, r9, r10, r11
+macro filebuf_write_1_char_and_8 c {
 
   local back
 
-  mov r8, rax
   mov r9, rbx
   lea rsi, [filebufs + r15]
 
@@ -161,12 +148,40 @@ macro filebuf_write_1_and_8 {
   lea rsi, [filebufs + r15]
   mov rdi, [rsi]
   add rdi, qword [rsi + 16]
-  mov rax, r8
-  mov byte [rdi], al
-  mov rbx, r9
-  mov qword [rdi + 1], rbx
+  mov byte [rdi], c
+  mov qword [rdi + 1], r9
 
   add qword [filebufs + r15 + 16], 9
+
+}
+
+; rbx : chars
+; r15 : id * 32
+; destroys : rax, rcx, rdx, rsi, rdi, r9, r10, r11
+macro filebuf_write_1_char_and_8_and_1_char_and_skip_n c1, c2, n {
+
+  local back
+
+  mov r9, rbx
+  lea rsi, [filebufs + r15]
+
+  mov rdx, [rsi + 16]
+  lea rax, [rdx + (10 + n)]
+  cmp rax, [rsi + 8]
+
+  mov r10, back
+  ja filebuf_flush
+
+  back:
+
+  lea rsi, [filebufs + r15]
+  mov rdi, [rsi]
+  add rdi, qword [rsi + 16]
+  mov byte [rdi], c1
+  mov qword [rdi + 1], r9
+  mov qword [rdi + 9], c2
+
+  add qword [filebufs + r15 + 16], (10 + n)
 
 }
 
