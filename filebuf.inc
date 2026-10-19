@@ -93,7 +93,7 @@ macro filebuf_write_and_2_chars cs {
   mov rcx, r9
   cld
   rep movsb
-  mov dword [rdi], cs
+  mov word [rdi], cs
 
   add r9, 2
   add qword [filebufs + r15 + 16], r9

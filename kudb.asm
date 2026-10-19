@@ -11,8 +11,8 @@ _pagesize = 4096
 realpath_buf_size = (4 * _pagesize)
 dents_buf_size    = (2 * _pagesize)
 filebuf_size      = (8 * _pagesize)
-max_threads = 4
-thread_initial_stack_size = (4 * _pagesize)
+max_threads = 16
+thread_initial_stack_size = (4 * 1024 * _pagesize)
 
 action_work     = 0
 action_dispatch = 1
@@ -24,21 +24,42 @@ segment readable executable
 
     mov qword [filebufs + 24], -1
 
+    mov [threads_count], 4
+
     cmp qword [rsp], 1
     je args_parsing_end
 
     mov rbx, [rsp + 16]
     mov [path_root_dir], rbx
 
-    cmp qword [rsp], 3
-    ja exit_failure_too_many_args
-    jb args_parsing_end
+    cmp qword [rsp], 2
+    je args_parsing_end
 
     mov rbx, [rsp + 24]
     mov [path_out_db], rbx
 
-    ; TODO: parse threads count
-    mov [threads_count], max_threads
+    cmp qword [rsp], 4
+    jb args_parsing_end
+    ja exit_failure_too_many_args
+
+    mov rsi, [rsp + 32]
+    xor ebx, ebx
+
+    @@:
+
+      xor eax, eax
+      lodsb
+      test eax, eax
+      jz @f
+
+      imul rbx, 10
+      sub eax, '0'
+      add rbx, rax
+      jmp @b
+
+    @@:
+
+    mov [threads_count], rbx
 
     args_parsing_end:
 
@@ -143,8 +164,8 @@ segment readable executable
 
     mov r13, [threads_count]
     dec r13
-    jz thread_spawn_loop_skip
     mov rbx, r13
+    jz thread_spawn_loop_skip
 
     thread_spawn_loop:
 
@@ -152,7 +173,7 @@ segment readable executable
       xor edi, edi
       mov rsi, thread_initial_stack_size
       mov rdx, (PROT_READ or PROT_WRITE)
-      mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_STACK or MAP_GROWSDOWN)
+      mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_STACK)
       xor r8, r8
       dec r8
       xor r9, r9
@@ -161,8 +182,18 @@ segment readable executable
       cmp rax, -4096
       ja exit_failure_errno
 
-      mov rsi, rax
-      add rsi, (thread_initial_stack_size - 8)
+      mov r14, rax
+
+      mov rdi, rax
+      mov rax, __NR_mprotect
+      mov esi, _pagesize
+      xor edx, edx
+      syscall
+
+      cmp rax, -4096
+      ja exit_failure_errno
+
+      lea rsi, [r14 + (thread_initial_stack_size - 8)]
       mov [rsi], r13
 
       mov rax, __NR_clone
@@ -237,7 +268,6 @@ segment readable executable
     @@:
 
       mov [tfoffsets + rbx], 0
-      ; mov [tfoffsets + 4 * rbx + 8], 0
 
       sub rbx, 32
       jns @b
@@ -339,13 +369,13 @@ segment readable executable
 
     thread_last_exit:
 
-    mov rax, __NR_close
-    mov rdi, [out_db_fd]
-    syscall
+      mov rax, __NR_close
+      mov rdi, [out_db_fd]
+      syscall
 
-    mov rax, __NR_exit_group
-    xor edi, edi
-    syscall
+      mov rax, __NR_exit_group
+      xor edi, edi
+      syscall
 
     exit_failure_errno_path:
 
@@ -630,10 +660,10 @@ segment readable executable
       mov r10, AT_SYMLINK_NOFOLLOW
       syscall
 
+      mov rcx, rbx
+
       cmp rax, -4096
       ja walker_unknown_back
-
-      mov rcx, rbx
 
       mov eax, dword [scratch + 24]
       and eax, S_IFMT
@@ -725,5 +755,5 @@ segment readable writeable
   tfoffsets dq max_threads dup (0, 0, ?, ?) ; 32 bytes padded
   pipe_fds rd 2
 
-  scratch rb 144 ; struct stat
+  scratch rb 144
 
