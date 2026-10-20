@@ -1,7 +1,6 @@
 format ELF64 executable 3
 entry start
 
-_errno_compact = 1
 include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
@@ -26,13 +25,12 @@ segment readable executable
 
     mov [threads_count], 4
 
-    cmp qword [rsp], 1
-    je args_parsing_end
+    cmp qword [rsp], 2
+    jb args_parsing_end
 
     mov rbx, [rsp + 16]
     mov [path_root_dir], rbx
 
-    cmp qword [rsp], 2
     je args_parsing_end
 
     mov rbx, [rsp + 24]
@@ -47,14 +45,14 @@ segment readable executable
 
     @@:
 
-      xor eax, eax
-      lodsb
+      movzx eax, byte [rsi]
+      inc rsi
       test eax, eax
       jz @f
 
-      imul rbx, 10
-      sub eax, '0'
-      add rbx, rax
+      lea rcx, [rbx + 4 * rbx]
+      lea rbx, [rax + 2 * rcx]
+      sub rbx, '0'
       jmp @b
 
     @@:
@@ -106,9 +104,11 @@ segment readable executable
 
     mov r12, rax
 
+    mov r13, [threads_count]
+
     mov rax, __NR_mmap
     xor edi, edi
-    imul rsi, [threads_count], filebuf_size
+    imul rsi, r13, (thread_initial_stack_size + filebuf_size)
     mov rdx, (PROT_READ or PROT_WRITE)
     mov r10, (MAP_PRIVATE or MAP_ANONYMOUS)
     xor r8, r8
@@ -119,13 +119,17 @@ segment readable executable
     cmp eax, -4096
     ja exit_failure_errno
 
-    imul rcx, [threads_count], 32
-    sub rcx, 32
+    mov rbx, rax
+    imul rax, r13, thread_initial_stack_size
+    lea r15, [rbx + rax]
+
+    lea rcx, [r13 - 1]
+    shl rcx, 5
 
     @@:
 
-      mov [filebufs + rcx], rax
-      add rax, filebuf_size
+      mov [filebufs + rcx], r15
+      add r15, filebuf_size
 
       sub rcx, 32
       jns @b
@@ -134,10 +138,14 @@ segment readable executable
 
     sub rsp, realpath_buf_size
 
+    mov r10, rbx
+
     mov rax, r12
     mov rdi, rsp
     mov rdx, realpath_buf_size
-    call realpath_fd
+    realpath_fd
+
+    mov rbx, r10
 
     mov r14, rax
 
@@ -164,27 +172,14 @@ segment readable executable
 
     mov r13, [threads_count]
     dec r13
-    mov rbx, r13
     jz thread_spawn_loop_skip
 
     thread_spawn_loop:
 
-      mov rax, __NR_mmap
-      xor edi, edi
-      mov rsi, thread_initial_stack_size
-      mov rdx, (PROT_READ or PROT_WRITE)
-      mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_STACK)
-      xor r8, r8
-      dec r8
-      xor r9, r9
-      syscall
+      mov r14, rbx
+      add rbx, thread_initial_stack_size
 
-      cmp rax, -4096
-      ja exit_failure_errno
-
-      mov r14, rax
-
-      mov rdi, rax
+      mov rdi, r14
       mov rax, __NR_mprotect
       mov esi, _pagesize
       xor edx, edx
@@ -221,7 +216,12 @@ segment readable executable
 
     mov [filebufs + 24], rax
 
+    xor r15, r15
+
     filebuf_write_1_char_and_skip_n action_work, 8
+
+    mov r13, [threads_count]
+    dec r13
 
     mov rax, thread_sleep
     push rax
@@ -229,7 +229,7 @@ segment readable executable
     wait_loop:
 
       mov rdx, [dispatch_count]
-      cmp rdx, rbx
+      cmp rdx, r13
       je @f
 
       mov rax, __NR_futex
@@ -556,7 +556,7 @@ segment readable executable
         sete bh
         and bl, bh
 
-        cmp word [r13 + 20], _char_dot ; ".\0"
+        cmp word [r13 + 20], _char_dot
         sete bh
         and dl, bh
 
