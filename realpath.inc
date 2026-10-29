@@ -10,10 +10,10 @@ include "constants.inc"
     mov r13, rdi
     mov r14, rdx
 
-    mov rdi, (realpath_fmt_buf + realpath_fmt_buf_size)
+    mov rdi, (realpath_fmt_buf + realpath_fmt_buf_size - 1)
     mov r11, rdi
 
-    mov rbx, 0xCCCCCCCCCCCCCCCD
+    mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
 
     realpath_fd_fmt_loop:
 
@@ -25,7 +25,7 @@ include "constants.inc"
       sub rcx, rax
       mov rax, rdx
 
-      add ecx, '0'
+      add ecx, _char_zero
       mov [rdi], cl
       dec rdi
 
@@ -36,7 +36,6 @@ include "constants.inc"
     sub rcx, rdi
     lea rsi, [rdi + 1]
     mov rdi, realpath_fmt_buf
-
 
     rep movsb
     mov byte [rdi], 0

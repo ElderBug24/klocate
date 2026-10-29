@@ -27,9 +27,8 @@ macro filebuf_write {
 
   back:
 
-  lea rsi, [filebufs + r15]
-  mov rdi, [rsi]
-  add rdi, qword [rsi + 16]
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 16]
   mov rsi, r8
   mov rcx, r9
   cld
@@ -56,9 +55,8 @@ macro filebuf_write_1_char c {
 
   back:
 
-  lea rsi, [filebufs + r15]
-  mov rdi, [rsi]
-  add rdi, qword [rsi + 16]
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 16]
   mov byte [rdi], c
 
   inc qword [filebufs + r15 + 16]
@@ -69,12 +67,12 @@ macro filebuf_write_1_char c {
 ; rcx : count
 ; r15 : id * 32
 ; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
-macro filebuf_write_and_2_chars cs {
+macro filebuf_write_m1_and_2_chars cs {
 
   local back
 
   mov r8, rsi
-  mov r9, rcx
+  lea r9, [rcx - 1]
   lea rsi, [filebufs + r15]
 
   mov rdx, [rsi + 16]
@@ -86,9 +84,8 @@ macro filebuf_write_and_2_chars cs {
 
   back:
 
-  lea rsi, [filebufs + r15]
-  mov rdi, [rsi]
-  add rdi, qword [rsi + 16]
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 16]
   mov rsi, r8
   mov rcx, r9
   cld
@@ -117,9 +114,8 @@ macro filebuf_write_1_char_and_skip_n c, n {
 
   back:
 
-  lea rsi, [filebufs + r15]
-  mov rdi, [rsi]
-  add rdi, qword [rsi + 16]
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 16]
   mov byte [rdi], c
 
   add qword [filebufs + r15 + 16], (1 + n)
@@ -145,9 +141,8 @@ macro filebuf_write_1_char_and_8 c {
 
   back:
 
-  lea rsi, [filebufs + r15]
-  mov rdi, [rsi]
-  add rdi, qword [rsi + 16]
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 16]
   mov byte [rdi], c
   mov qword [rdi + 1], r9
 
@@ -174,14 +169,45 @@ macro filebuf_write_1_char_and_8_and_1_char_and_skip_n c1, c2, n {
 
   back:
 
-  lea rsi, [filebufs + r15]
-  mov rdi, [rsi]
-  add rdi, qword [rsi + 16]
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 16]
   mov byte [rdi], c1
   mov qword [rdi + 1], r9
-  mov qword [rdi + 9], c2
+  mov byte [rdi + 9], c2
 
   add qword [filebufs + r15 + 16], (10 + n)
+
+}
+
+; rax : chars
+; rbx : chars
+; r15 : id * 32
+; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
+macro filebuf_write_1_char_and_16_and_1_char_and_skip_8 c1, c2 {
+
+  local back
+
+  mov r8, rax
+  mov r9, rbx
+  lea rsi, [filebufs + r15]
+
+  mov rdx, [rsi + 16]
+  lea rax, [rdx + 26]
+  cmp rax, [rsi + 8]
+
+  mov r10, back
+  ja filebuf_flush
+
+  back:
+
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 16]
+  mov byte [rdi], c1
+  mov qword [rdi + 1], r8
+  mov qword [rdi + 9], r9
+  mov byte [rdi + 17], c2
+
+  add qword [filebufs + r15 + 16], 26
 
 }
 

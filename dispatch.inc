@@ -83,7 +83,7 @@ macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_
 ; reg64_task : 64 bit register containing task to dispatch
 ; reg64_id : 64 bit register containing id
 ; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r11, reg64_task (containing result of dispatch), reg64_id (containing worker id if dispatched)
-macro dispatch_try_dispatch reg64_out, reg64_id, reg64_task {
+macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
 
   local end
 
@@ -104,14 +104,16 @@ macro dispatch_try_dispatch reg64_out, reg64_id, reg64_task {
   mov r9, [r8 + 8]
   mov dword [r8], 1
 
-  mov rax, __NR_futex
   mov rdi, r8
+  mov r8, [tfoffsets + r9]
+  mov rax, __NR_futex
   mov rsi, (FUTEX_WAKE or FUTEX_PRIVATE_FLAG)
   mov edx, 1
   syscall
 
   mov reg64_out, 1
   mov reg64_id, r9
+  mov reg64_off, r8
 
   end:
 

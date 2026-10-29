@@ -1,6 +1,7 @@
 format ELF64 executable 3
 entry start
 
+_errno_compact = 1
 include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
@@ -11,7 +12,10 @@ realpath_buf_size = (4 * _pagesize)
 dents_buf_size    = (2 * _pagesize)
 filebuf_size      = (8 * _pagesize)
 max_threads = 16
-thread_initial_stack_size = (4 * 1024 * _pagesize)
+thread_stack_size_exp = 24
+thread_stack_size = (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
+scratch_size_exp = 8
+scratch_size = (1 shl scratch_size_exp)
 
 action_work     = 0
 action_dispatch = 1
@@ -22,21 +26,21 @@ segment readable executable
   start:
 
     mov qword [filebufs + 24], -1
+    mov [threads_count], 1
 
-    mov [threads_count], 4
-
-    cmp qword [rsp], 2
+    mov rcx, qword [rsp]
+    cmp rcx, 2
     jb args_parsing_end
 
-    mov rbx, [rsp + 16]
-    mov [path_root_dir], rbx
+    mov rax, [rsp + 16]
+    mov [path_root_dir], rax
 
     je args_parsing_end
 
     mov rbx, [rsp + 24]
     mov [path_out_db], rbx
 
-    cmp qword [rsp], 4
+    cmp rcx, 4
     jb args_parsing_end
     ja exit_failure_too_many_args
 
@@ -52,7 +56,7 @@ segment readable executable
 
       lea rcx, [rbx + 4 * rbx]
       lea rbx, [rax + 2 * rcx]
-      sub rbx, '0'
+      sub rbx, _char_zero
       jmp @b
 
     @@:
@@ -60,6 +64,8 @@ segment readable executable
     mov [threads_count], rbx
 
     args_parsing_end:
+
+    ; TODO: parse environment variables
 
     cmp qword [path_out_db], default_path_out_db
     jne different_path_out
@@ -108,9 +114,9 @@ segment readable executable
 
     mov rax, __NR_mmap
     xor edi, edi
-    imul rsi, r13, (thread_initial_stack_size + filebuf_size)
+    imul rsi, r13, (thread_stack_size + filebuf_size)
     mov rdx, (PROT_READ or PROT_WRITE)
-    mov r10, (MAP_PRIVATE or MAP_ANONYMOUS)
+    mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
     xor r8, r8
     dec r8
     xor r9, r9
@@ -120,7 +126,8 @@ segment readable executable
     ja exit_failure_errno
 
     mov rbx, rax
-    imul rax, r13, thread_initial_stack_size
+    mov rax, r13
+    shl rax, thread_stack_size_exp
     lea r15, [rbx + rax]
 
     lea rcx, [r13 - 1]
@@ -171,13 +178,14 @@ segment readable executable
     add rsp, realpath_buf_size
 
     mov r13, [threads_count]
-    dec r13
-    jz thread_spawn_loop_skip
 
     thread_spawn_loop:
 
+      dec r13
+      jz thread_spawn_loop_skip
+
       mov r14, rbx
-      add rbx, thread_initial_stack_size
+      add rbx, thread_stack_size
 
       mov rdi, r14
       mov rax, __NR_mprotect
@@ -188,7 +196,7 @@ segment readable executable
       cmp rax, -4096
       ja exit_failure_errno
 
-      lea rsi, [r14 + (thread_initial_stack_size - 8)]
+      lea rsi, [r14 + (thread_stack_size - 8)]
       mov [rsi], r13
 
       mov rax, __NR_clone
@@ -201,14 +209,13 @@ segment readable executable
       test rax, rax
       jz thread_entry
 
-      dec r13
-      jnz thread_spawn_loop
+      jmp thread_spawn_loop
 
     thread_spawn_loop_skip:
 
     mov rax, __NR_memfd_create
     mov rdi, tmpfile_debug_name
-    xor rsi, rsi
+    xor esi, esi
     syscall
 
     cmp rax, -4096
@@ -223,8 +230,7 @@ segment readable executable
     mov r13, [threads_count]
     dec r13
 
-    mov rax, thread_sleep
-    push rax
+    push thread_sleep
 
     wait_loop:
 
@@ -247,8 +253,13 @@ segment readable executable
     jmp walker
 
     thread_last:
+; int3
 
-    imul rbx, [threads_count], 32
+; TODO: account for offset of worker
+; save offset to stack before rec
+
+    mov rbx, [threads_count]
+    shl rbx, 5
     sub rbx, 32
 
     @@:
@@ -262,7 +273,8 @@ segment readable executable
       sub rbx, 32
       jns @b
 
-    imul rbx, [threads_count], 32
+    mov rbx, [threads_count]
+    shl rbx, 5
     sub rbx, 32
 
     @@:
@@ -290,24 +302,37 @@ segment readable executable
 
     xor r15, r15
 
-    mov rax, thread_last_exit
-    push rax
+    push thread_last_exit
 
     ; r15 : tmpfile index * 32
     thread_last_rec:
 
-      mov rax, __NR_pread64
-      mov rdi, [filebufs + r15 + 24]
-      mov rsi, scratch
-      mov rdx, 9
-      mov r10, [tfoffsets + r15]
-      syscall
+      xor r14, r14
+      mov ebx, 9
 
-      cmp rax, -4096
-      ja exit_failure_errno
+      @@:
 
-      test rax, rax
-      jz thread_last_rec_ret
+        mov edx, 9
+        cmp ebx, edx
+        cmovb edx, ebx
+
+        mov rax, __NR_pread64
+        mov rdi, [filebufs + r15 + 24]
+        lea rsi, [scratch + r14]
+        mov r10, [tfoffsets + r15]
+        add r10, r14
+        syscall
+
+        test rax, rax
+        jz thread_last_rec_ret
+
+        cmp rax, -4096
+        ja exit_failure_errno
+
+        add r14, rax
+        sub ebx, eax
+
+        jnz @b
 
       mov al, [scratch]
       mov rbx, qword [scratch + 1]
@@ -369,10 +394,6 @@ segment readable executable
 
     thread_last_exit:
 
-      mov rax, __NR_close
-      mov rdi, [out_db_fd]
-      syscall
-
       mov rax, __NR_exit_group
       xor edi, edi
       syscall
@@ -382,8 +403,9 @@ segment readable executable
       mov r12, rax
       mov r13, rdi
 
-      xor rax, rax
-      mov rcx, -1
+      xor eax, eax
+      xor ecx, ecx
+      dec rcx
       cld
       repne scasb
       not rcx
@@ -413,11 +435,13 @@ segment readable executable
       mov rax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, char_newline
-      mov rdx, 1
+      xor edx, edx
+      inc edx
       syscall
 
       mov rax, __NR_exit_group
-      mov edi, 1
+      xor edi, edi
+      inc edi
       syscall
 
     exit_failure_errno:
@@ -433,11 +457,13 @@ segment readable executable
       mov rax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, char_newline
-      mov rdx, 1
+      xor edx, edx
+      inc edx
       syscall
 
       mov rax, __NR_exit_group
-      mov edi, 1
+      xor edi, edi
+      inc edi
       syscall
 
     exit_failure_too_many_args:
@@ -449,7 +475,8 @@ segment readable executable
       syscall
 
       mov rax, __NR_exit_group
-      mov edi, 1
+      xor edi, edi
+      inc edi
       syscall
 
   thread_exit:
@@ -460,13 +487,56 @@ segment readable executable
 
   thread_entry:
 
-    imul r15, [rsp], 32
+    mov rax, [rsp]
+    mov r15, rax
+    shl r15, 5
     mov qword [rsp], thread_sleep
 
+    mov rbp, rsp
+    sub rsp, (tmpfile_debug_name_len + 16)
+
+    mov rdi, rsp
+    mov rsi, tmpfile_debug_name
+    mov rcx, tmpfile_debug_name_len
+    rep movsb
+
+    mov r11, rdi
+
+    lea rdi, [rsp + tmpfile_debug_name + 16 - 1]
+
+    mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
+
+    thread_entry_id_fmt_loop:
+
+      mov rcx, rax
+      mul rbx
+      shr rdx, 3
+      lea rax, [4 * rdx + rdx]
+      add rax, rax
+      sub rcx, rax
+      mov rax, rdx
+
+      add ecx, _char_zero
+      mov [rdi], cl
+      dec rdi
+
+      test rax, rax
+      jnz thread_entry_id_fmt_loop
+
+    lea rcx, [rsp + tmpfile_debug_name + 16 - 1]
+    sub rcx, rdi
+    lea rsi, [rdi + 1]
+    mov rdi, r11
+
+    rep movsb
+    mov byte [rdi], 0
+
     mov rax, __NR_memfd_create
-    mov rdi, tmpfile_debug_name
-    xor rsi, rsi
+    mov rdi, rsp
+    xor esi, esi
     syscall
+
+    mov rsp, rbp
 
     cmp rax, -4096
     ja exit_failure_errno
@@ -508,8 +578,7 @@ segment readable executable
 
       je thread_last
 
-      mov rax, thread_sleep
-      push rax
+      push thread_sleep
 
     thread_sleep_skip:
 
@@ -522,15 +591,12 @@ segment readable executable
   ; r12 : fd
   walker:
 
-    push rbp
-    mov rbp, rsp
-
-    sub rsp, (dents_buf_size + 1) ; room to check for ".\0" or "..\0"
+    mov byte [rsp - 1], 0
+    sub rsp, (dents_buf_size + 1 + 7) ; room to check for ".\0" or "..\0" and 7 bytes of padding
 
     walker_loop:
 
       mov word [rsp + (dents_buf_size - 2)], -1
-      assert ~(_char_null = -1) & ~(_char_slash = -1)
 
       mov rax, __NR_getdents64
       mov rdi, r12
@@ -538,16 +604,18 @@ segment readable executable
       mov rdx, dents_buf_size
       syscall
 
+      cmp rax, -4096
+      ja exit_failure_errno
+
       test rax, rax
       jz walker_loop_end
 
       mov r13, rsp
-      mov r14, rsp
-      add r14, rax
+      lea r14, [rsp + rax]
 
       walker_ent_loop:
 
-        ; TODO: dynamic filter list
+        ; TODO: dynamic filter list (jit compiled ?)
 
         cmp byte [r13 + 19], _char_dot
         sete bl
@@ -556,7 +624,7 @@ segment readable executable
         sete bh
         and bl, bh
 
-        cmp word [r13 + 20], _char_dot
+        cmp word [r13 + 20], _char_dot ; ".\0"
         sete bh
         and dl, bh
 
@@ -564,12 +632,12 @@ segment readable executable
         jnz walker_ent_loop_skip
 
         lea rdi, [r13 + 19]
-        xor rax, rax
-        mov rcx, -1
+        xor eax, eax
+        xor ecx, ecx
+        dec rcx
         cld
         repne scasb
         not rcx
-        dec rcx
 
         cmp byte [r13 + 18], DT_DIR
         je walker_ent_loop_dir
@@ -578,7 +646,6 @@ segment readable executable
         walker_unknown_back:
 
         lea rsi, [r13 + 19]
-        inc rcx
         add [tfoffsets + r15 + 8], rcx
         filebuf_write
 
@@ -592,10 +659,9 @@ segment readable executable
         walker_ent_loop_dir:
 
         lea rsi, [r13 + 19]
-        mov rbx, rcx
-        add rbx, 2
+        lea rbx, [rcx + 1]
         add [tfoffsets + r15 + 8], rbx
-        filebuf_write_and_2_chars (_char_slash + (_char_null shl 8))
+        filebuf_write_m1_and_2_chars _char_slash ; ".\0"
 
         mov rax, __NR_openat
         mov rdi, r12
@@ -607,7 +673,7 @@ segment readable executable
         ja walker_on_openat_err
 
         mov r10, rax
-        dispatch_try_dispatch rax, rbx, r10
+        dispatch_try_dispatch rax, rbx, r8, r10
         test rax, rax
         jnz walker_dispatch
 
@@ -641,13 +707,12 @@ segment readable executable
 
     walker_loop_end:
 
-    inc qword [tfoffsets + r15 + 8]
-    filebuf_write_1_char _char_slash
+      inc qword [tfoffsets + r15 + 8]
+      filebuf_write_1_char _char_slash
 
-    mov rsp, rbp
-    pop rbp
+      add rsp, (dents_buf_size + 1 + 7)
 
-    ret
+      ret
 
     walker_unknown:
 
@@ -656,7 +721,9 @@ segment readable executable
       mov rax, __NR_newfstatat
       mov rdi, r12
       lea rsi, [r13 + 19]
-      mov rdx, scratch
+      mov rdx, r15
+      shl rdx, (scratch_size_exp - 5)
+      add rdx, scratch
       mov r10, AT_SYMLINK_NOFOLLOW
       syscall
 
@@ -665,7 +732,7 @@ segment readable executable
       cmp rax, -4096
       ja walker_unknown_back
 
-      mov eax, dword [scratch + 24]
+      mov eax, dword [rdx + 24]
       and eax, S_IFMT
 
       cmp eax, S_IFDIR
@@ -703,36 +770,39 @@ segment readable executable
       add [tfoffsets + r15], rax
       mov qword [tfoffsets + r15 + 8], 0
 
-      filebuf_write_1_char_and_8_and_1_char_and_skip_n action_dispatch, action_work, 8
+      ; TODO: write 16: offset then id
+      ; filebuf_write_1_char_and_8_and_1_char_and_skip_n action_dispatch, action_work, 8
+      mov rax, r8
+      filebuf_write_1_char_and_16_and_1_char_and_skip_8 action_dispatch, action_work
 
       jmp walker_ent_loop_skip
 
 segment readable
 
-  _char_slash   = '/'
+  timeout dq 0
+          dq 0500000
+
   _char_null    = 0
   _char_newline = 10
   _char_dot     = '.'
+  _char_slash   = '/'
+  _char_zero    = '0'
 
-  char_slash_null:
-  char_slash db _char_slash
   char_newline db _char_newline
 
-  path_parent db '.'
-  path_current db "./"
-  path_parent_len = $ - path_parent
-  path_current_len = $ - path_current
-
-  msg_sep db ": "
+  msg_err_too_many_args db "error"
+  msg_sep               db      ": "
   msg_sep_len = $ - msg_sep
-  msg_err_too_many_args db "error: Too many arguments", 10
+                        db        "Too many arguments", _char_newline
   msg_err_too_many_args_len = $ - msg_err_too_many_args
 
-  default_path_root_dir db   "/", 0
-  default_path_out_db_dir db "/var/cache/klocate", 0
-  default_path_out_db db     "/var/cache/klocate/db", 0
+  default_path_root_dir   db "/", _char_null
+  default_path_out_db_dir db "/var/cache/klocate", _char_null
+  default_path_out_db     db "/var/cache/klocate/db", _char_null
 
-  tmpfile_debug_name db "tmpfile", 0
+  tmpfile_debug_name db "tmpfile"
+  tmpfile_debug_name_len = $ - tmpfile_debug_name
+  db _char_zero, _char_null
 
 segment readable writeable
 
@@ -740,20 +810,17 @@ segment readable writeable
 
   align 8
 
-  timeout dq 0
-          dq 1000000
-
   out_db_fd dq -1
 
   pipe_capacity dq _pagesize
 
   path_root_dir dq default_path_root_dir
-  path_out_db dq default_path_out_db
+  path_out_db   dq default_path_out_db
   threads_count dq max_threads
 
-  filebufs dq max_threads dup (0, filebuf_size, 0, -1)
+  filebufs  dq max_threads dup (0, filebuf_size, 0, -1)
   tfoffsets dq max_threads dup (0, 0, ?, ?) ; 32 bytes padded
   pipe_fds rd 2
 
-  scratch rb 144
+  scratch rb (max_threads * scratch_size)
 
