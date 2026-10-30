@@ -201,22 +201,25 @@ segment readable executable
       sub rsp, list_mode_buffer_size
       mov rbp, rsp
       mov r14, rbp
+      lea r12, [r8 + r13]
       mov r13, r8
 
-      push list_end
       push rbp
+      push list_end
 
       jmp list_rec_skip_ahead
 
       list_rec:
 
-        xor eax, eax
+        cmp r13, r12
+        jae list_end
+
         cmp byte [r13], _char_slash
-        sete al
-        add r13, rax
         je list_rec_end
 
         list_rec_skip_ahead:
+
+        mov r8, rbp
 
         mov al, [r13]
         inc r13
@@ -232,8 +235,6 @@ segment readable executable
           cmp al, _char_null
           jne @b
 
-        inc r13
-
         mov byte [rbp], _char_newline
 
         mov rax, __NR_write
@@ -244,27 +245,26 @@ segment readable executable
         inc rdx
         syscall
 
-        xor eax, eax
         cmp byte [rbp - 1], _char_slash
-        sete al
-        add r13, rax
+        cmovne rbp, r8
         jne list_rec
 
         list_rec_dir:
 
+          push r8
           push @f
-          push rbp
 
           jmp list_rec
 
           @@:
 
+          pop rbp
+
           jmp list_rec
 
       list_rec_end:
 
-        pop rbp
-
+        inc r13
         ret
 
       list_end:
