@@ -11,7 +11,8 @@ _pagesize = 4096
 realpath_buf_size = (4 * _pagesize)
 dents_buf_size    = (2 * _pagesize)
 filebuf_size      = (8 * _pagesize)
-max_threads = 16
+pipe_buf = _pagesize
+max_threads = 16 ; TODO: get rid of all limitaions imposed at assembly time
 thread_stack_size_exp = 24
 thread_stack_size = (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
 scratch_size_exp = 8
@@ -225,7 +226,7 @@ segment readable executable
 
     xor r15, r15
 
-    filebuf_write_1_char_and_skip_n action_work, 8
+    filebuf_write_1_char_and_skip_n action_work, 16
 
     mov r13, [threads_count]
     dec r13
@@ -253,10 +254,6 @@ segment readable executable
     jmp walker
 
     thread_last:
-; int3
-
-; TODO: account for offset of worker
-; save offset to stack before rec
 
     mov rbx, [threads_count]
     shl rbx, 5
@@ -273,16 +270,7 @@ segment readable executable
       sub rbx, 32
       jns @b
 
-    mov rbx, [threads_count]
-    shl rbx, 5
-    sub rbx, 32
-
-    @@:
-
-      mov [tfoffsets + rbx], 0
-
-      sub rbx, 32
-      jns @b
+    mov [tfoffsets], 0
 
     mov rax, __NR_pipe
     mov rdi, pipe_fds
@@ -294,7 +282,7 @@ segment readable executable
     xor edx, edx
     syscall
 
-    mov rbx, _pagesize
+    mov rbx, pipe_buf
     cmp rax, -4096
     cmova rax, rbx
 
@@ -308,18 +296,18 @@ segment readable executable
     thread_last_rec:
 
       xor r14, r14
-      mov ebx, 9
+      mov ebx, 17
 
       @@:
 
-        mov edx, 9
+        mov edx, 17
         cmp ebx, edx
         cmovb edx, ebx
 
         mov rax, __NR_pread64
         mov rdi, [filebufs + r15 + 24]
         lea rsi, [scratch + r14]
-        mov r10, [tfoffsets + r15]
+        mov r10, [tfoffsets]
         add r10, r14
         syscall
 
@@ -334,14 +322,14 @@ segment readable executable
 
         jnz @b
 
-      mov al, [scratch]
+      movzx eax, byte [scratch]
       mov rbx, qword [scratch + 1]
 
-      cmp al, action_dispatch
+      add [tfoffsets], 17
+
+      cmp eax, action_dispatch
       je thread_last_rec_dispatch
       ja thread_last_rec_ret
-
-      add [tfoffsets + r15], 9
 
       @@:
 
@@ -351,7 +339,7 @@ segment readable executable
 
         mov rax, __NR_splice
         mov rdi, [filebufs + r15 + 24]
-        lea rsi, [tfoffsets + r15]
+        lea rsi, [tfoffsets]
         mov edx, [pipe_fds + 4]
         xor r10, r10
         mov r8, r12
@@ -365,6 +353,7 @@ segment readable executable
         mov rdx, [out_db_fd]
         xor r10, r10
         xor r9, r9
+        mov r9, SPLICE_F_MORE
         syscall
 
         sub rbx, rax
@@ -375,20 +364,21 @@ segment readable executable
 
       thread_last_rec_dispatch:
 
-        add [tfoffsets + r15], 9
+        mov rcx, qword [scratch + 9]
 
+        push [tfoffsets]
+        mov [tfoffsets], rbx
         push r15
-        mov r15, rbx
+        mov r15, rcx
 
         call thread_last_rec
 
         pop r15
+        pop [tfoffsets]
 
         jmp thread_last_rec
 
       thread_last_rec_ret:
-
-        add [tfoffsets + r15], 1
 
         ret
 
@@ -492,6 +482,7 @@ segment readable executable
     shl r15, 5
     mov qword [rsp], thread_sleep
 
+    ; TODO: this section is only useful for debugging
     mov rbp, rsp
     sub rsp, (tmpfile_debug_name_len + 16)
 
@@ -502,7 +493,7 @@ segment readable executable
 
     mov r11, rdi
 
-    lea rdi, [rsp + tmpfile_debug_name + 16 - 1]
+    lea rdi, [rsp + tmpfile_debug_name_len + 16 - 1]
 
     mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
 
@@ -523,7 +514,7 @@ segment readable executable
       test rax, rax
       jnz thread_entry_id_fmt_loop
 
-    lea rcx, [rsp + tmpfile_debug_name + 16 - 1]
+    lea rcx, [rsp + tmpfile_debug_name_len + 16 - 1]
     sub rcx, rdi
     lea rsi, [rdi + 1]
     mov rdi, r11
@@ -551,7 +542,7 @@ segment readable executable
       mov rdi, r12
       syscall
 
-      filebuf_write_1_char action_end
+      filebuf_write_1_char_and_skip_n action_end, 16
 
       lea rsi, [filebufs + r15]
       mov rdx, [filebufs + r15 + 16]
@@ -568,7 +559,7 @@ segment readable executable
       syscall
 
       mov rax, [tfoffsets + r15 + 8]
-      add rax, 10
+      add rax, 34
       add [tfoffsets + r15], rax
       mov qword [tfoffsets + r15 + 8], 0
 
@@ -584,7 +575,7 @@ segment readable executable
 
     dispatch_worker_idle r12, r15, threads_count, thread_last
 
-    filebuf_write_1_char_and_skip_n action_work, 8
+    filebuf_write_1_char_and_skip_n action_work, 16
 
     ; fallthrough
 
@@ -766,14 +757,12 @@ segment readable executable
       syscall
 
       mov rax, [tfoffsets + r15 + 8]
-      add rax, 18
+      add rax, 34
       add [tfoffsets + r15], rax
       mov qword [tfoffsets + r15 + 8], 0
 
-      ; TODO: write 16: offset then id
-      ; filebuf_write_1_char_and_8_and_1_char_and_skip_n action_dispatch, action_work, 8
       mov rax, r8
-      filebuf_write_1_char_and_16_and_1_char_and_skip_8 action_dispatch, action_work
+      filebuf_write_1_char_and_16_and_1_char_and_skip_16 action_dispatch, action_work
 
       jmp walker_ent_loop_skip
 
@@ -811,8 +800,6 @@ segment readable writeable
   align 8
 
   out_db_fd dq -1
-
-  pipe_capacity dq _pagesize
 
   path_root_dir dq default_path_root_dir
   path_out_db   dq default_path_out_db

@@ -102,10 +102,10 @@ macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
   mov [dispatch_lock], 0
   mov [r8 + 16], rdi
   mov r9, [r8 + 8]
-  mov dword [r8], 1
-
   mov rdi, r8
   mov r8, [tfoffsets + r9]
+  mov dword [rdi], 1
+
   mov rax, __NR_futex
   mov rsi, (FUTEX_WAKE or FUTEX_PRIVATE_FLAG)
   mov edx, 1
