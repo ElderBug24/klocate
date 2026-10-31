@@ -11,23 +11,23 @@ macro dispatch_declare max {
 ; destroys : rax
 macro dispatch_lock_state {
 
-  local try, spin, end
+  local .try, .spin, .end
 
-  try:
+  .try:
 
     mov eax, 1
     xchg [dispatch_lock], rax
     test eax, eax
-    jz end
+    jz .end
 
-  spin:
+  .spin:
 
     pause
     cmp [dispatch_lock], 0
-    jne spin
-    jmp try
+    jne .spin
+    jmp .try
 
-  end:
+  .end:
 
 }
 
@@ -36,7 +36,7 @@ macro dispatch_lock_state {
 ; destroys : rax, rcx, rdx, rsi, rdi, r10, r11, reg64_task (containing dispatched task)
 macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_label {
 
-  local wait, woken, last
+  local .wait, .woken, .last
 
   sub rsp, 24
   mov dword [rsp], 0
@@ -49,14 +49,14 @@ macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_
   mov [dispatch_stack + 8 * rax], rsp
   inc rax
   cmp rax, [threads_count_ptr]
-  je last
+  je .last
   mov [dispatch_count], rax
   mov [dispatch_lock], 0
 
-  wait:
+  .wait:
 
     cmp dword [rsp], 0
-    jne woken
+    jne .woken
 
     mov rax, __NR_futex
     mov rdi, rsp
@@ -65,15 +65,15 @@ macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_
     xor r10, r10
     syscall
 
-    jmp wait
+    jmp .wait
 
-  last:
+  .last:
 
   mov [dispatch_lock], 0
   add rsp, 24
   jmp thread_last_label
 
-  woken:
+  .woken:
 
   mov reg64_task, [rsp + 16]
   add rsp, 24
@@ -85,7 +85,7 @@ macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_
 ; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r11, reg64_task (containing result of dispatch), reg64_id (containing worker id if dispatched)
 macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
 
-  local end
+  local .end
 
   mov rdi, reg64_task
 
@@ -94,7 +94,7 @@ macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
   mov reg64_out, [dispatch_count]
   mov [dispatch_lock], reg64_out
   test reg64_out, reg64_out
-  jz end
+  jz .end
   dec reg64_out
   mov [dispatch_count], reg64_out
 
@@ -115,7 +115,7 @@ macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
   mov reg64_id, r9
   mov reg64_off, r8
 
-  end:
+  .end:
 
 }
 

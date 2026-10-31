@@ -31,18 +31,18 @@ segment readable executable
 
     mov rcx, qword [rsp]
     cmp rcx, 2
-    jb args_parsing_end
+    jb .args_parsing_end
 
     mov rax, [rsp + 16]
     mov [path_root_dir], rax
 
-    je args_parsing_end
+    je .args_parsing_end
 
     mov rbx, [rsp + 24]
     mov [path_out_db], rbx
 
     cmp rcx, 4
-    jb args_parsing_end
+    jb .args_parsing_end
     ja exit_failure_too_many_args
 
     mov rsi, [rsp + 32]
@@ -64,12 +64,12 @@ segment readable executable
 
     mov [threads_count], rbx
 
-    args_parsing_end:
+    .args_parsing_end:
 
     ; TODO: parse environment variables
 
     cmp qword [path_out_db], default_path_out_db
-    jne different_path_out
+    jne .different_path_out
 
     mov rax, __NR_mkdir
     mov rdi, default_path_out_db_dir
@@ -84,7 +84,7 @@ segment readable executable
     mov rdi, default_path_out_db_dir
     jnz exit_failure_errno_path
 
-    different_path_out:
+    .different_path_out:
 
     mov rax, __NR_openat
     mov rdi, AT_FDCWD
@@ -180,7 +180,7 @@ segment readable executable
 
     mov r13, [threads_count]
 
-    thread_spawn_loop:
+    .thread_spawn_loop:
 
       dec r13
       jz thread_spawn_loop_skip
@@ -210,7 +210,7 @@ segment readable executable
       test rax, rax
       jz thread_entry
 
-      jmp thread_spawn_loop
+      jmp .thread_spawn_loop
 
     thread_spawn_loop_skip:
 
@@ -233,7 +233,7 @@ segment readable executable
 
     push thread_sleep
 
-    wait_loop:
+    .wait_loop:
 
       mov rdx, [dispatch_count]
       cmp rdx, r13
@@ -247,7 +247,7 @@ segment readable executable
       xor r9, r9
       syscall
 
-      jmp wait_loop
+      jmp .wait_loop
 
     @@:
 
@@ -290,10 +290,10 @@ segment readable executable
 
     xor r15, r15
 
-    push thread_last_exit
+    push .exit
 
     ; r15 : tmpfile index * 32
-    thread_last_rec:
+    .rec:
 
       xor r14, r14
       mov ebx, 17
@@ -312,7 +312,7 @@ segment readable executable
         syscall
 
         test rax, rax
-        jz thread_last_rec_ret
+        jz .ret
 
         cmp rax, -4096
         ja exit_failure_errno
@@ -328,8 +328,8 @@ segment readable executable
       add [tfoffsets], 17
 
       cmp eax, action_dispatch
-      je thread_last_rec_dispatch
-      ja thread_last_rec_ret
+      je .dispatch
+      ja .ret
 
       @@:
 
@@ -360,9 +360,9 @@ segment readable executable
 
         jnz @b
 
-      jmp thread_last_rec
+      jmp .rec
 
-      thread_last_rec_dispatch:
+      .dispatch:
 
         mov rcx, qword [scratch + 9]
 
@@ -371,18 +371,18 @@ segment readable executable
         push r15
         mov r15, rcx
 
-        call thread_last_rec
+        call .rec
 
         pop r15
         pop [tfoffsets]
 
-        jmp thread_last_rec
+        jmp .rec
 
-      thread_last_rec_ret:
+      .ret:
 
         ret
 
-    thread_last_exit:
+    .exit:
 
       mov rax, __NR_exit_group
       xor edi, edi
@@ -497,7 +497,7 @@ segment readable executable
 
     mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
 
-    thread_entry_id_fmt_loop:
+    .id_fmt_loop:
 
       mov rcx, rax
       mul rbx
@@ -512,7 +512,7 @@ segment readable executable
       dec rdi
 
       test rax, rax
-      jnz thread_entry_id_fmt_loop
+      jnz .id_fmt_loop
 
     lea rcx, [rsp + tmpfile_debug_name_len + 16 - 1]
     sub rcx, rdi
@@ -585,7 +585,7 @@ segment readable executable
     mov byte [rsp - 1], 0
     sub rsp, (dents_buf_size + 1 + 7) ; room to check for ".\0" or "..\0" and 7 bytes of padding
 
-    walker_loop:
+    .loop:
 
       mov word [rsp + (dents_buf_size - 2)], -1
 
@@ -599,12 +599,12 @@ segment readable executable
       ja exit_failure_errno
 
       test rax, rax
-      jz walker_loop_end
+      jz .loop_end
 
       mov r13, rsp
       lea r14, [rsp + rax]
 
-      walker_ent_loop:
+      .ent_loop:
 
         ; TODO: dynamic filter list (jit compiled ?)
 
@@ -620,7 +620,7 @@ segment readable executable
         and dl, bh
 
         or bl, dl
-        jnz walker_ent_loop_skip
+        jnz .ent_loop_skip
 
         lea rdi, [r13 + 19]
         xor eax, eax
@@ -631,10 +631,10 @@ segment readable executable
         not rcx
 
         cmp byte [r13 + 18], DT_DIR
-        je walker_ent_loop_dir
+        je .ent_loop_dir
         cmp byte [r13 + 18], DT_UNKNOWN
-        je walker_unknown
-        walker_unknown_back:
+        je .unknown
+        .unknown_back:
 
         lea rsi, [r13 + 19]
         add [tfoffsets + r15 + 8], rcx
@@ -644,10 +644,10 @@ segment readable executable
         add r13, rax
 
         cmp r13, r14
-        jne walker_ent_loop
-        jmp walker_ent_loop_end
+        jne .ent_loop
+        jmp .ent_loop_end
 
-        walker_ent_loop_dir:
+        .ent_loop_dir:
 
         lea rsi, [r13 + 19]
         lea rbx, [rcx + 1]
@@ -661,12 +661,12 @@ segment readable executable
         syscall
 
         cmp rax, -4096
-        ja walker_on_openat_err
+        ja .on_openat_err
 
         mov r10, rax
         dispatch_try_dispatch rax, rbx, r8, r10
         test rax, rax
-        jnz walker_dispatch
+        jnz .dispatch
 
         push r12
         push r13
@@ -684,19 +684,19 @@ segment readable executable
         pop r13
         pop r12
 
-        walker_ent_loop_skip:
+        .ent_loop_skip:
 
         movzx rax, word [r13 + 16]
         add r13, rax
 
         cmp r13, r14
-        jne walker_ent_loop
+        jne .ent_loop
 
-        walker_ent_loop_end:
+        .ent_loop_end:
 
-      jmp walker_loop
+      jmp .loop
 
-    walker_loop_end:
+    .loop_end:
 
       inc qword [tfoffsets + r15 + 8]
       filebuf_write_1_char _char_slash
@@ -705,7 +705,7 @@ segment readable executable
 
       ret
 
-    walker_unknown:
+    .unknown:
 
       mov rbx, rcx
 
@@ -721,26 +721,26 @@ segment readable executable
       mov rcx, rbx
 
       cmp rax, -4096
-      ja walker_unknown_back
+      ja .unknown_back
 
       mov eax, dword [rdx + 24]
       and eax, S_IFMT
 
       cmp eax, S_IFDIR
-      je walker_ent_loop_dir
+      je .ent_loop_dir
 
-      jmp walker_unknown_back
+      jmp .unknown_back
 
-    walker_on_openat_err:
+    .on_openat_err:
 
       inc qword [tfoffsets + r15 + 8]
       filebuf_write_1_char _char_slash
 
       mov rsi, r13
 
-      jmp walker_ent_loop_skip
+      jmp .ent_loop_skip
 
-    walker_dispatch:
+    .dispatch:
 
       lea rsi, [filebufs + r15]
       mov rdx, [rsi + 16]
@@ -764,7 +764,7 @@ segment readable executable
       mov rax, r8
       filebuf_write_1_char_and_16_and_1_char_and_skip_16 action_dispatch, action_work
 
-      jmp walker_ent_loop_skip
+      jmp .ent_loop_skip
 
 segment readable
 
@@ -794,8 +794,6 @@ segment readable
   db _char_zero, _char_null
 
 segment readable writeable
-
-  align 8
 
   out_db_fd dq -1
 

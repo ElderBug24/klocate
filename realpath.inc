@@ -15,7 +15,7 @@ include "constants.inc"
 
     mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
 
-    realpath_fd_fmt_loop:
+    .fmt_loop:
 
       mov rcx, rax
       mul rbx
@@ -30,7 +30,7 @@ include "constants.inc"
       dec rdi
 
       test rax, rax
-      jnz realpath_fd_fmt_loop
+      jnz .fmt_loop
 
     mov rcx, r11
     sub rcx, rdi
