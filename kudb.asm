@@ -13,6 +13,7 @@ dents_buf_size    = (2 * _pagesize)
 filebuf_size      = (8 * _pagesize)
 pipe_buf = _pagesize
 max_threads = 16 ; TODO: get rid of all limitaions imposed at assembly time
+default_threads_count = 4
 thread_stack_size_exp = 24
 thread_stack_size = (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
 scratch_size_exp = 8
@@ -27,7 +28,6 @@ segment readable executable
   start:
 
     mov qword [filebufs + 24], -1
-    mov [threads_count], 1
 
     mov rcx, qword [rsp]
     cmp rcx, 2
@@ -795,18 +795,20 @@ segment readable
 
 segment readable writeable
 
-  dispatch_declare max_threads
-
   align 8
 
   out_db_fd dq -1
 
   path_root_dir dq default_path_root_dir
   path_out_db   dq default_path_out_db
-  threads_count dq max_threads
+  threads_count dq default_threads_count
 
+  ; TODO: remove the require and set to zero at runtime
   filebufs  dq max_threads dup (0, filebuf_size, 0, -1)
   tfoffsets dq max_threads dup (0, 0, ?, ?) ; 32 bytes padded
+
+  dispatch_declare max_threads
+
   pipe_fds rd 2
 
   scratch rb (max_threads * scratch_size)
