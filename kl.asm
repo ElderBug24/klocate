@@ -11,28 +11,38 @@ segment readable executable
 
   start:
 
-    mov rcx, qword [rsp]
+    mov r8, qword [rsp]
 
     xor eax, eax
-    cmp rcx, 2
+    cmp r8, 2
     setb al
     mov r15, rax
-    jb args_parsing_end
+    jb .args_parsing_end
 
     mov rax, [rsp + 16]
-    mov [input], rax
+    mov [querry], rax
 
-    je args_parsing_end
+    mov rdi, rax
+    xor eax, eax
+    xor ecx, ecx
+    dec rcx
+    cld
+    repne scasb
+    not rcx
+    dec rcx
+    mov [querry_size], rcx
 
-    mov rbx, qword [rsp + 24]
-    mov [path_in_db], rbx
+    cmp r8, 3
+    jb .args_parsing_end
 
-    cmp rcx, 3
+    mov rax, qword [rsp + 24]
+    mov [path_in_db], rax
+
     ja exit_failure_too_many_args
 
     ; TODO: parse threads count
 
-    args_parsing_end:
+    .args_parsing_end:
 
     mov rax, __NR_openat
     mov rdi, AT_FDCWD
@@ -109,7 +119,38 @@ segment readable executable
     test r15, r15
     jnz list
 
-    mov rcx, r13 ; TODO:
+    mov rcx, r13
+    mov r14, [querry]
+    mov r13, [querry_size]
+    mov r12, r8
+
+    mov rdi, r12
+    .loop:
+
+      mov al, [r14]
+      cld
+      repne scasb
+
+      test rcx, rcx
+      jz .end
+
+      mov r11, rcx
+      mov r10, rdi
+
+      lea rsi, [r14 + 1]
+      mov rcx, [querry_size]
+      dec rcx
+      repe cmpsb
+
+      mov rcx, r11
+      mov rdi, r10
+      jnz .loop
+
+      ; TODO: print match
+
+      jmp .loop
+
+    .end:
 
     mov rax, __NR_exit
     xor edi, edi
@@ -205,19 +246,19 @@ segment readable executable
       mov r13, r8
 
       push rbp
-      push list_end
+      push .end
 
-      jmp list_rec_skip_ahead
+      jmp .skip_ahead
 
-      list_rec:
+      .rec:
 
         cmp r13, r12
-        jae list_end
+        jae .end
 
         cmp byte [r13], _char_slash
-        je list_rec_end
+        je .ret
 
-        list_rec_skip_ahead:
+        .skip_ahead:
 
         mov r8, rbp
 
@@ -247,27 +288,27 @@ segment readable executable
 
         cmp byte [rbp - 1], _char_slash
         cmovne rbp, r8
-        jne list_rec
+        jne .rec
 
-        list_rec_dir:
+        .dir:
 
           push r8
           push @f
 
-          jmp list_rec
+          jmp .rec
 
           @@:
 
           pop rbp
 
-          jmp list_rec
+          jmp .rec
 
-      list_rec_end:
+      .ret:
 
         inc r13
         ret
 
-      list_end:
+      .end:
 
       mov rax, __NR_exit
       xor edi, edi
@@ -295,7 +336,8 @@ segment readable
 
 segment readable writeable
 
-  input rq 1
+  querry      rq 1
+  querry_size rq 1
 
   path_in_db dq default_path_in_db
 
