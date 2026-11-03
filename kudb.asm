@@ -71,7 +71,7 @@ segment readable executable
     cmp qword [path_out_db], default_path_out_db
     jne .different_path_out
 
-    mov rax, __NR_mkdir
+    mov eax, __NR_mkdir
     mov rdi, default_path_out_db_dir
     mov rsi, (S_IRWXU or S_IRGRP or S_IXGRP or S_IROTH or S_IXOTH)
     syscall
@@ -86,7 +86,7 @@ segment readable executable
 
     .different_path_out:
 
-    mov rax, __NR_openat
+    mov eax, __NR_openat
     mov rdi, AT_FDCWD
     mov rsi, [path_out_db]
     mov rdx, (O_WRONLY or O_CREAT or O_TRUNC)
@@ -99,7 +99,7 @@ segment readable executable
     mov [out_db_fd], rax
     mov [filebufs + 24], rax
 
-    mov rax, __NR_openat
+    mov eax, __NR_openat
     mov rdi, AT_FDCWD
     mov rsi, [path_root_dir]
     mov rdx, (O_RDONLY or O_NOATIME or O_DIRECTORY)
@@ -113,7 +113,7 @@ segment readable executable
 
     mov r13, [threads_count]
 
-    mov rax, __NR_mmap
+    mov eax, __NR_mmap
     xor edi, edi
     imul rsi, r13, (thread_stack_size + filebuf_size)
     mov rdx, (PROT_READ or PROT_WRITE)
@@ -189,7 +189,7 @@ segment readable executable
       add rbx, thread_stack_size
 
       mov rdi, r14
-      mov rax, __NR_mprotect
+      mov eax, __NR_mprotect
       mov esi, _pagesize
       xor edx, edx
       syscall
@@ -200,7 +200,7 @@ segment readable executable
       lea rsi, [r14 + (thread_stack_size - 8)]
       mov [rsi], r13
 
-      mov rax, __NR_clone
+      mov eax, __NR_clone
       mov rdi, (CLONE_FILES or CLONE_FS or CLONE_THREAD or CLONE_SIGHAND or CLONE_VM)
       syscall
 
@@ -214,7 +214,7 @@ segment readable executable
 
     thread_spawn_loop_skip:
 
-    mov rax, __NR_memfd_create
+    mov eax, __NR_memfd_create
     mov rdi, tmpfile_debug_name
     xor esi, esi
     syscall
@@ -239,7 +239,7 @@ segment readable executable
       cmp rdx, r13
       je @f
 
-      mov rax, __NR_futex
+      mov eax, __NR_futex
       mov rdi, dispatch_count
       mov rsi, (FUTEX_WAIT or FUTEX_PRIVATE_FLAG)
       mov r10, timeout
@@ -261,7 +261,7 @@ segment readable executable
 
     @@:
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rsi, [filebufs + rbx]
       mov rdi, [filebufs + rbx + 24]
       mov rdx, [filebufs + rbx + 16]
@@ -272,11 +272,11 @@ segment readable executable
 
     mov [tfoffsets], 0
 
-    mov rax, __NR_pipe
+    mov eax, __NR_pipe
     mov rdi, pipe_fds
     syscall
 
-    mov rax, __NR_fcntl
+    mov eax, __NR_fcntl
     mov edi, [pipe_fds]
     mov rsi, F_GETPIPE_SZ
     xor edx, edx
@@ -304,7 +304,7 @@ segment readable executable
         cmp ebx, edx
         cmovb edx, ebx
 
-        mov rax, __NR_pread64
+        mov eax, __NR_pread64
         mov rdi, [filebufs + r15 + 24]
         lea rsi, [scratch + r14]
         mov r10, [tfoffsets]
@@ -337,7 +337,7 @@ segment readable executable
         cmp r12, r13
         cmova r12, r13
 
-        mov rax, __NR_splice
+        mov eax, __NR_splice
         mov rdi, [filebufs + r15 + 24]
         lea rsi, [tfoffsets]
         mov edx, [pipe_fds + 4]
@@ -347,7 +347,7 @@ segment readable executable
         syscall
 
         mov r8, rax
-        mov rax, __NR_splice
+        mov eax, __NR_splice
         mov edi, [pipe_fds]
         xor esi, esi
         mov rdx, [out_db_fd]
@@ -384,7 +384,7 @@ segment readable executable
 
     .exit:
 
-      mov rax, __NR_exit_group
+      mov eax, __NR_exit_group
       xor edi, edi
       syscall
 
@@ -401,13 +401,13 @@ segment readable executable
       not rcx
       dec rcx
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rsi, r13
       mov rdi, STDERR_FILENO
       mov rdx, rcx
       syscall
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, msg_sep
       mov rdx, msg_sep_len
@@ -418,18 +418,18 @@ segment readable executable
 
       mov esi, dword [_errno_table_msg + 4 * rax + 4]
       movzx edx, byte [_errno_table_len + rax + 1]
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       syscall
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, char_newline
       xor edx, edx
       inc edx
       syscall
 
-      mov rax, __NR_exit_group
+      mov eax, __NR_exit_group
       xor edi, edi
       inc edi
       syscall
@@ -440,38 +440,38 @@ segment readable executable
 
       mov esi, dword [_errno_table_msg + 4 * rax + 4]
       movzx edx, byte [_errno_table_len + rax + 1]
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       syscall
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, char_newline
       xor edx, edx
       inc edx
       syscall
 
-      mov rax, __NR_exit_group
+      mov eax, __NR_exit_group
       xor edi, edi
       inc edi
       syscall
 
     exit_failure_too_many_args:
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, msg_err_too_many_args
       mov rdx, msg_err_too_many_args_len
       syscall
 
-      mov rax, __NR_exit_group
+      mov eax, __NR_exit_group
       xor edi, edi
       inc edi
       syscall
 
   thread_exit:
 
-    mov rax, __NR_exit
+    mov eax, __NR_exit
     xor edi, edi
     syscall
 
@@ -522,7 +522,7 @@ segment readable executable
     rep movsb
     mov byte [rdi], 0
 
-    mov rax, __NR_memfd_create
+    mov eax, __NR_memfd_create
     mov rdi, rsp
     xor esi, esi
     syscall
@@ -538,7 +538,7 @@ segment readable executable
 
     thread_sleep:
 
-      mov rax, __NR_close
+      mov eax, __NR_close
       mov rdi, r12
       syscall
 
@@ -550,7 +550,7 @@ segment readable executable
       jmp filebuf_flush
       @@:
 
-      mov rax, __NR_pwrite64
+      mov eax, __NR_pwrite64
       mov rdi, [filebufs + r15 + 24]
       lea rsi, [tfoffsets + r15 + 8]
       mov rdx, 8
@@ -589,7 +589,7 @@ segment readable executable
 
       mov word [rsp + (dents_buf_size - 2)], -1
 
-      mov rax, __NR_getdents64
+      mov eax, __NR_getdents64
       mov rdi, r12
       mov rsi, rsp
       mov rdx, dents_buf_size
@@ -654,7 +654,7 @@ segment readable executable
         add [tfoffsets + r15 + 8], rbx
         filebuf_write_m1_and_2_chars _char_slash ; ".\0"
 
-        mov rax, __NR_openat
+        mov eax, __NR_openat
         mov rdi, r12
         lea rsi, [r13 + 19]
         mov rdx, (O_RDONLY or O_NOATIME or O_DIRECTORY)
@@ -676,7 +676,7 @@ segment readable executable
 
         call walker
 
-        mov rax, __NR_close
+        mov eax, __NR_close
         mov rdi, r12
         syscall
 
@@ -709,7 +709,7 @@ segment readable executable
 
       mov rbx, rcx
 
-      mov rax, __NR_newfstatat
+      mov eax, __NR_newfstatat
       mov rdi, r12
       lea rsi, [r13 + 19]
       mov rdx, r15
@@ -748,7 +748,7 @@ segment readable executable
       jmp filebuf_flush
       @@:
 
-      mov rax, __NR_pwrite64
+      mov eax, __NR_pwrite64
       mov rdi, [filebufs + r15 + 24]
       lea rsi, [tfoffsets + r15 + 8]
       mov rdx, 8

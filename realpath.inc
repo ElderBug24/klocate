@@ -40,7 +40,7 @@ include "constants.inc"
     rep movsb
     mov byte [rdi], 0
 
-    mov rax, __NR_readlink
+    mov eax, __NR_readlink
     mov rdi, realpath_proc_self_fd_path
     mov rsi, r13
     mov rdx, r14

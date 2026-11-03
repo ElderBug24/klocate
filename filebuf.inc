@@ -195,7 +195,7 @@ segment readable executable
 
       mov qword [rsi + 16], 0
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, [rsi + 24]
       mov rsi, [rsi]
       syscall

@@ -59,7 +59,7 @@ macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_
     cmp dword [rsp], 0
     jne .woken
 
-    mov rax, __NR_futex
+    mov eax, __NR_futex
     mov rdi, rsp
     mov rsi, (FUTEX_WAIT or FUTEX_PRIVATE_FLAG)
     xor edx, edx
@@ -107,7 +107,7 @@ macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
   mov r8, [tfoffsets + r9]
   mov dword [rdi], 1
 
-  mov rax, __NR_futex
+  mov eax, __NR_futex
   mov rsi, (FUTEX_WAKE or FUTEX_PRIVATE_FLAG)
   mov edx, 1
   syscall

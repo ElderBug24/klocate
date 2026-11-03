@@ -44,7 +44,7 @@ segment readable executable
 
     .args_parsing_end:
 
-    mov rax, __NR_openat
+    mov eax, __NR_openat
     mov rdi, AT_FDCWD
     mov rsi, [path_in_db]
     mov rdx, O_RDONLY
@@ -55,7 +55,7 @@ segment readable executable
     ja exit_failure_errno_path
     mov r12, rax
 
-    mov rax, __NR_fstat
+    mov eax, __NR_fstat
     mov rdi, r12
     mov rsi, scratch
     syscall
@@ -78,7 +78,7 @@ segment readable executable
 
     mov r13, qword [scratch + 48]
 
-    mov rax, __NR_mmap
+    mov eax, __NR_mmap
     xor edi, edi
     mov rsi, r13
     mov rdx, (PROT_READ or PROT_WRITE)
@@ -102,7 +102,7 @@ segment readable executable
       cmp rbx, rdx
       cmovb rdx, rbx
 
-      mov rax, __NR_pread64
+      mov eax, __NR_pread64
       mov rdi, r12
       lea rsi, [r8 + r14]
       mov r10, r14
@@ -177,7 +177,7 @@ segment readable executable
 
     .end:
 
-    mov rax, __NR_exit
+    mov eax, __NR_exit
     xor edi, edi
     syscall
 
@@ -194,13 +194,13 @@ segment readable executable
       not rcx
       dec rcx
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rsi, r13
       mov rdi, STDERR_FILENO
       mov rdx, rcx
       syscall
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, msg_sep
       mov rdx, msg_sep_len
@@ -211,18 +211,18 @@ segment readable executable
 
       mov esi, dword [_errno_table_msg + 4 * rax + 4]
       movzx edx, byte [_errno_table_len + rax + 1]
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       syscall
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, char_newline
       xor edx, edx
       inc edx
       syscall
 
-      mov rax, __NR_exit
+      mov eax, __NR_exit
       xor edi, edi
       inc edi
       syscall
@@ -233,31 +233,31 @@ segment readable executable
 
       mov esi, dword [_errno_table_msg + 4 * rax + 4]
       movzx edx, byte [_errno_table_len + rax + 1]
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       syscall
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, char_newline
       xor edx, edx
       inc edx
       syscall
 
-      mov rax, __NR_exit
+      mov eax, __NR_exit
       xor edi, edi
       inc edi
       syscall
 
     exit_failure_too_many_args:
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDERR_FILENO
       mov rsi, msg_err_too_many_args
       mov rdx, msg_err_too_many_args_len
       syscall
 
-      mov rax, __NR_exit
+      mov eax, __NR_exit
       xor edi, edi
       inc edi
       syscall
@@ -398,7 +398,7 @@ segment readable executable
       mov rdi, rsp
       rep movsb
 
-      mov rax, __NR_write
+      mov eax, __NR_write
       mov rdi, STDOUT_FILENO
       mov rsi, rsp
       mov rdx, rbp
@@ -453,7 +453,7 @@ segment readable executable
 
         mov byte [rbp], _char_newline
 
-        mov rax, __NR_write
+        mov eax, __NR_write
         mov rdi, STDOUT_FILENO
         mov rsi, r14
         mov rdx, rbp
@@ -485,7 +485,7 @@ segment readable executable
 
       .end:
 
-      mov rax, __NR_exit
+      mov eax, __NR_exit
       xor edi, edi
       syscall
 
