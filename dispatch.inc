@@ -15,9 +15,10 @@ macro dispatch_lock_state {
 
   .try:
 
-    mov eax, 1
+    xor eax, eax
+    inc eax
     xchg [dispatch_lock], rax
-    test eax, eax
+    test al, al
     jz .end
 
   .spin:
@@ -32,8 +33,8 @@ macro dispatch_lock_state {
 }
 
 ; reg64_task : 64 bit register
-; reg64_id : 64 bit register containing worker id
-; destroys : rax, rcx, rdx, rsi, rdi, r10, r11, reg64_task (containing dispatched task)
+; reg64_id   : 64 bit register containing worker id
+; destroys   : rax, rcx, rdx, rsi, rdi, r10, r11, reg64_task (containing dispatched task)
 macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_label {
 
   local .wait, .woken, .last
@@ -81,8 +82,8 @@ macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_
 }
 
 ; reg64_task : 64 bit register containing task to dispatch
-; reg64_id : 64 bit register containing id
-; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r11, reg64_task (containing result of dispatch), reg64_id (containing worker id if dispatched)
+; reg64_id   : 64 bit register containing id
+; destroys   : rax, rcx, rdx, rsi, rdi, r8, r9, r11, reg64_task (containing result of dispatch), reg64_id (containing worker id if dispatched)
 macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
 
   local .end

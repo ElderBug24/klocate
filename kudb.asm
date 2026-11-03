@@ -52,7 +52,7 @@ segment readable executable
 
       movzx eax, byte [rsi]
       inc rsi
-      test eax, eax
+      test al, al
       jz @f
 
       lea rcx, [rbx + 4 * rbx]
@@ -123,7 +123,7 @@ segment readable executable
     xor r9, r9
     syscall
 
-    cmp eax, -4096
+    cmp rax, -4096
     ja exit_failure_errno
 
     mov rbx, rax
@@ -327,7 +327,7 @@ segment readable executable
 
       add [tfoffsets], 17
 
-      cmp eax, action_dispatch
+      cmp al, action_dispatch
       je .dispatch
       ja .ret
 
