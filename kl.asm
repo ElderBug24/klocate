@@ -1,7 +1,7 @@
 format ELF64 executable 3
 entry start
 
-; _errno_compact = 1
+_errno_compact = 1
 include "constants.inc"
 
 _pagesize = 4096
@@ -11,7 +11,8 @@ segment readable executable
 
   start:
 
-    mov r8, qword [rsp]
+    cld
+    mov r8, [rsp]
 
     xor eax, eax
     cmp r8, 2
@@ -26,7 +27,6 @@ segment readable executable
     xor eax, eax
     xor ecx, ecx
     dec rcx
-    cld
     repne scasb
     not rcx
     dec rcx
@@ -35,7 +35,7 @@ segment readable executable
     cmp r8, 3
     jb .args_parsing_end
 
-    mov rax, qword [rsp + 24]
+    mov rax, [rsp + 24]
     mov [path_in_db], rax
 
     ja exit_failure_too_many_args
@@ -119,16 +119,26 @@ segment readable executable
     test r15, r15
     jnz list
 
-    mov rcx, r13
+    mov r11, r13
     mov r14, [querry]
     mov r13, [querry_size]
     mov r12, r8
 
-    mov rdi, r12
+    xor eax, eax
+    xor ecx, ecx
+    dec rcx
+    mov rdi, r8
+    repne scasb
+    sub rdi, 2
+    mov [root_offset], rdi
+
+    mov r10, r12
     .loop:
 
+      mov rcx, r11
+      mov rdi, r10
+
       mov al, [r14]
-      cld
       repne scasb
 
       test rcx, rcx
@@ -142,11 +152,26 @@ segment readable executable
       dec rcx
       repe cmpsb
 
-      mov rcx, r11
-      mov rdi, r10
       jnz .loop
 
-      ; TODO: print match
+      lea rdi, [r10 - 1]
+
+      .skip_file_loop:
+
+        mov al, [rdi]
+        dec rdi
+
+        test al, al
+        jz .skip_file_loop_end
+        cmp al, _char_slash
+        jne .skip_file_loop
+
+      .skip_file_loop_end:
+
+      lea r9, [rdi + 2]
+
+      jmp print_match
+      .print_match_back:
 
       jmp .loop
 
@@ -236,6 +261,156 @@ segment readable executable
       xor edi, edi
       inc edi
       syscall
+
+    ; r8 : ptr to the beginning of the file
+    ; r9 : ptr to the match
+    print_match:
+
+      cld
+
+      mov rbp, rsp
+      dec rsp
+      mov byte [rsp], _char_newline
+
+      ; TODO: move in reverse, keeping the rdi of before the call
+
+      mov rdi, r9
+      xor eax, eax
+      xor ecx, ecx
+      dec rcx
+      repne scasb
+      not rcx
+      dec rcx
+
+      sub rsp, rcx
+
+      mov rsi, r9
+      mov rdi, rsp
+      rep movsb
+
+      sub r9, 2
+
+      .loop:
+
+        mov ax, word [r9]
+        test ah, ah
+        jnz .skip_dir
+
+        cmp al, _char_slash
+        je .copy_dir
+
+        .skip_file_loop:
+
+          mov al, [r9]
+          dec r9
+
+          test al, al
+          jz .skip_file_loop_end
+          cmp al, _char_slash
+          jne .skip_file_loop
+
+        .skip_file_loop_end:
+
+        jmp .loop
+
+        .copy_dir:
+
+          cmp r9, [root_offset]
+          je .copy_root
+
+          mov rsi, r9
+          mov rdi, rsp
+
+          mov al, byte [rsi]
+
+          .copy_dir_loop:
+
+            mov [rdi - 1], al
+            dec rdi
+
+            dec rsi
+            mov al, [rsi]
+
+            test al, al
+            jz .copy_dir_loop_end
+            cmp al, _char_slash
+            jne .copy_dir_loop
+
+          .copy_dir_loop_end:
+
+          lea r9, [rsi - 1]
+
+          mov rsp, rdi
+
+        jmp .loop
+
+        .skip_dir:
+
+          xor ebx, ebx
+          inc ebx
+
+          mov eax, _char_slash
+          mov rdi, r9
+          std
+
+          .skip_dir_loop:
+
+            xor ecx, ecx
+            dec rcx
+            repne scasb
+
+            xor edx, edx
+            cmp byte [rdi + 2], _char_null
+            setne dl
+            add edx, edx
+            dec rdx
+            add rbx, rdx
+
+            jnz .skip_dir_loop
+
+          .skip_dir_name_loop:
+
+            mov al, [rdi]
+            dec rdi
+
+            test al, al
+            jz .skip_dir_name_loop_end
+            cmp al, _char_slash
+            jne .skip_dir_name_loop
+
+          .skip_dir_name_loop_end:
+
+          mov r9, rdi
+
+          cld
+
+        jmp .loop
+
+      .copy_root:
+
+      mov rcx, [root_offset]
+      sub rcx, r8
+      inc rcx
+
+      sub rsp, rcx
+
+      mov rsi, r8
+      mov rdi, rsp
+      rep movsb
+
+      mov rax, __NR_write
+      mov rdi, STDOUT_FILENO
+      mov rsi, rsp
+      mov rdx, rbp
+      sub rdx, rsp
+      inc rdx
+      mov rbx, r11
+      syscall
+      mov r11, rbx
+
+      mov rsp, rbp
+
+      jmp start.print_match_back
 
     list:
 
@@ -338,6 +513,7 @@ segment readable writeable
 
   querry      rq 1
   querry_size rq 1
+  root_offset rq 1
 
   path_in_db dq default_path_in_db
 
