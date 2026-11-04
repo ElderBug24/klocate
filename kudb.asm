@@ -1,7 +1,7 @@
 format ELF64 executable 3
 entry start
 
-_errno_compact = 1
+; _errno_compact = 1
 include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
@@ -12,7 +12,7 @@ realpath_buf_size = (4 * _pagesize)
 dents_buf_size    = (2 * _pagesize)
 filebuf_size      = (8 * _pagesize)
 pipe_buf = _pagesize
-max_threads = 16 ; TODO: get rid of all limitaions imposed at assembly time
+max_threads = 64 ; TODO: get rid of all limitaions imposed at assembly time
 default_threads_count = 4
 thread_stack_size_exp = 24
 thread_stack_size = (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
@@ -26,8 +26,6 @@ action_end      = 2
 segment readable executable
 
   start:
-
-    mov qword [filebufs + 16], -1
 
     mov rcx, qword [rsp]
     cmp rcx, 2
@@ -61,6 +59,9 @@ segment readable executable
       jmp @b
 
     @@:
+
+    cmp rbx, max_threads
+    ja exit_failure_too_many_threads
 
     mov [threads_count], rbx
 
@@ -118,9 +119,6 @@ segment readable executable
     imul rsi, r13, (thread_stack_size + filebuf_size)
     mov rdx, (PROT_READ or PROT_WRITE)
     mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
-    xor r8, r8
-    dec r8
-    xor r9, r9
     syscall
 
     cmp rax, -4096
@@ -137,6 +135,9 @@ segment readable executable
     @@:
 
       mov [filebufs + rcx], r15
+      mov [filebufs + rcx + 8], 0
+      mov [tfoffsets + rcx], 0
+      mov [tfoffsets + rcx + 8], 0
       add r15, filebuf_size
 
       sub rcx, 32
@@ -254,6 +255,7 @@ segment readable executable
     jmp walker
 
     thread_last:
+    ; TODO: map temp files before and replace splice with write
 
     mov rbx, [threads_count]
     shl rbx, 5
@@ -462,6 +464,25 @@ segment readable executable
       mov rdi, STDERR_FILENO
       mov rsi, msg_err_too_many_args
       mov rdx, msg_err_too_many_args_len
+      syscall
+
+      mov eax, __NR_exit_group
+      xor edi, edi
+      inc edi
+      syscall
+
+    exit_failure_too_many_threads:
+
+      mov eax, __NR_write
+      mov rdi, STDERR_FILENO
+      mov rsi, msg_err
+      mov rdx, msg_err_sep_len
+      syscall
+
+      mov eax, __NR_write
+      mov rdi, STDERR_FILENO
+      mov rsi, msg_err_too_many_threads
+      mov rdx, msg_err_too_many_threads_len
       syscall
 
       mov eax, __NR_exit_group
@@ -779,11 +800,37 @@ segment readable
 
   char_newline db _char_newline
 
-  msg_err_too_many_args db "error"
+  msg_err               db "error"
   msg_sep               db      ": "
+  msg_err_sep_len = $ - msg_err
   msg_sep_len = $ - msg_sep
                         db        "Too many arguments", _char_newline
+  label msg_err_too_many_args byte at msg_err
   msg_err_too_many_args_len = $ - msg_err_too_many_args
+
+  macro db_int value {
+    local val, divisor, digit
+    val = value
+    if val = 0
+      db '0'
+    else
+      divisor = 1
+      while divisor <= val / 10
+      divisor = divisor * 10
+      end while
+      while divisor > 0
+        digit = val / divisor
+        db '0' + digit
+        val = val - (digit * divisor)
+        divisor = divisor / 10
+      end while
+    end if
+  }
+
+  msg_err_too_many_threads db "Too many threads (max: "
+  db_int max_threads
+  db ")", 10
+  msg_err_too_many_threads_len = $ - msg_err_too_many_threads
 
   default_path_root_dir   db "/", _char_null
   default_path_out_db_dir db "/var/cache/klocate", _char_null
@@ -801,11 +848,10 @@ segment readable writeable
   path_out_db   dq default_path_out_db
   threads_count dq default_threads_count
 
-  ; TODO: remove the require and set to zero at runtime
-  filebufs  dq max_threads dup (0, 0, -1, ?)
-  tfoffsets dq max_threads dup (0, 0, ?, ?) ; 32 bytes padded
-
   dispatch_declare max_threads
+
+  filebufs  rq (max_threads * 4) ; 32 bytes padded
+  tfoffsets rq (max_threads * 4) ; 32 bytes padded
 
   pipe_fds rd 2
 
