@@ -27,7 +27,7 @@ segment readable executable
 
   start:
 
-    mov qword [filebufs + 24], -1
+    mov qword [filebufs + 16], -1
 
     mov rcx, qword [rsp]
     cmp rcx, 2
@@ -97,7 +97,7 @@ segment readable executable
     mov rdi, [path_out_db]
     ja exit_failure_errno_path
     mov [out_db_fd], rax
-    mov [filebufs + 24], rax
+    mov [filebufs + 16], rax
 
     mov eax, __NR_openat
     mov rdi, AT_FDCWD
@@ -159,19 +159,19 @@ segment readable executable
 
     mov rsi, rsp
     mov rcx, rax
-    filebuf_write
+    filebuf_write filebuf_size
 
     cmp byte [rsp + r14 - 1], _char_slash
     je @f
 
-    filebuf_write_1_char _char_slash
+    filebuf_write_1_char _char_slash, filebuf_size
 
     @@:
 
-    filebuf_write_1_char _char_null
+    filebuf_write_1_char _char_null, filebuf_size
 
     mov rsi, filebufs
-    mov rdx, [filebufs + 16]
+    mov rdx, [filebufs + 8]
     mov r10, @f
     jmp filebuf_flush
     @@:
@@ -222,11 +222,11 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov [filebufs + 24], rax
+    mov [filebufs + 16], rax
 
     xor r15, r15
 
-    filebuf_write_1_char_and_skip_n action_work, 16
+    filebuf_write_1_char_and_skip_n action_work, 16, filebuf_size
 
     mov r13, [threads_count]
     dec r13
@@ -263,8 +263,8 @@ segment readable executable
 
       mov eax, __NR_write
       mov rsi, [filebufs + rbx]
-      mov rdi, [filebufs + rbx + 24]
-      mov rdx, [filebufs + rbx + 16]
+      mov rdi, [filebufs + rbx + 16]
+      mov rdx, [filebufs + rbx + 8]
       syscall
 
       sub rbx, 32
@@ -305,7 +305,7 @@ segment readable executable
         cmovb edx, ebx
 
         mov eax, __NR_pread64
-        mov rdi, [filebufs + r15 + 24]
+        mov rdi, [filebufs + r15 + 16]
         lea rsi, [scratch + r14]
         mov r10, [tfoffsets]
         add r10, r14
@@ -338,7 +338,7 @@ segment readable executable
         cmova r12, r13
 
         mov eax, __NR_splice
-        mov rdi, [filebufs + r15 + 24]
+        mov rdi, [filebufs + r15 + 16]
         lea rsi, [tfoffsets]
         mov edx, [pipe_fds + 4]
         xor r10, r10
@@ -532,7 +532,7 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov [filebufs + r15 + 24], rax
+    mov [filebufs + r15 + 16], rax
 
     jmp thread_sleep_skip
 
@@ -542,16 +542,16 @@ segment readable executable
       mov rdi, r12
       syscall
 
-      filebuf_write_1_char_and_skip_n action_end, 16
+      filebuf_write_1_char_and_skip_n action_end, 16, filebuf_size
 
       lea rsi, [filebufs + r15]
-      mov rdx, [filebufs + r15 + 16]
+      mov rdx, [filebufs + r15 + 8]
       mov r10, @f
       jmp filebuf_flush
       @@:
 
       mov eax, __NR_pwrite64
-      mov rdi, [filebufs + r15 + 24]
+      mov rdi, [filebufs + r15 + 16]
       lea rsi, [tfoffsets + r15 + 8]
       mov rdx, 8
       mov r10, [tfoffsets + r15]
@@ -575,7 +575,7 @@ segment readable executable
 
     dispatch_worker_idle r12, r15, threads_count, thread_last
 
-    filebuf_write_1_char_and_skip_n action_work, 16
+    filebuf_write_1_char_and_skip_n action_work, 16, filebuf_size
 
     ; fallthrough
 
@@ -638,7 +638,7 @@ segment readable executable
 
         lea rsi, [r13 + 19]
         add [tfoffsets + r15 + 8], rcx
-        filebuf_write
+        filebuf_write filebuf_size
 
         movzx rax, word [r13 + 16]
         add r13, rax
@@ -652,7 +652,7 @@ segment readable executable
         lea rsi, [r13 + 19]
         lea rbx, [rcx + 1]
         add [tfoffsets + r15 + 8], rbx
-        filebuf_write_m1_and_2_chars _char_slash ; ".\0"
+        filebuf_write_m1_and_2_chars _char_slash, filebuf_size ; ".\0"
 
         mov eax, __NR_openat
         mov rdi, r12
@@ -699,7 +699,7 @@ segment readable executable
     .loop_end:
 
       inc qword [tfoffsets + r15 + 8]
-      filebuf_write_1_char _char_slash
+      filebuf_write_1_char _char_slash, filebuf_size
 
       add rsp, (dents_buf_size + 1 + 7)
 
@@ -734,7 +734,7 @@ segment readable executable
     .on_openat_err:
 
       inc qword [tfoffsets + r15 + 8]
-      filebuf_write_1_char _char_slash
+      filebuf_write_1_char _char_slash, filebuf_size
 
       mov rsi, r13
 
@@ -743,13 +743,13 @@ segment readable executable
     .dispatch:
 
       lea rsi, [filebufs + r15]
-      mov rdx, [rsi + 16]
+      mov rdx, [filebufs + r15 + 8]
       mov r10, @f
       jmp filebuf_flush
       @@:
 
       mov eax, __NR_pwrite64
-      mov rdi, [filebufs + r15 + 24]
+      mov rdi, [filebufs + r15 + 16]
       lea rsi, [tfoffsets + r15 + 8]
       mov rdx, 8
       mov r10, [tfoffsets + r15]
@@ -762,7 +762,7 @@ segment readable executable
       mov qword [tfoffsets + r15 + 8], 0
 
       mov rax, r8
-      filebuf_write_1_char_and_16_and_1_char_and_skip_16 action_dispatch, action_work
+      filebuf_write_1_char_and_16_and_1_char_and_skip_16 action_dispatch, action_work, filebuf_size
 
       jmp .ent_loop_skip
 
@@ -802,7 +802,7 @@ segment readable writeable
   threads_count dq default_threads_count
 
   ; TODO: remove the require and set to zero at runtime
-  filebufs  dq max_threads dup (0, filebuf_size, 0, -1)
+  filebufs  dq max_threads dup (0, 0, -1, ?)
   tfoffsets dq max_threads dup (0, 0, ?, ?) ; 32 bytes padded
 
   dispatch_declare max_threads
