@@ -3,8 +3,11 @@ entry start
 
 _errno_compact = 1
 include "constants.inc"
+include "filebuf.inc"
 
 _pagesize = 4096
+filebuf_size          = (8 * _pagesize)
+max_threads = 64
 list_mode_buffer_size = (8 * _pagesize)
 
 segment readable executable
@@ -60,6 +63,8 @@ segment readable executable
     mov rsi, scratch
     syscall
 
+    mov r13, qword [scratch + 48]
+
     mov rdi, [path_in_db]
     cmp rax, -4096
     ja exit_failure_errno_path
@@ -76,15 +81,12 @@ segment readable executable
     cmovne rax, rcx
     jne exit_failure_errno_path
 
-    mov r13, qword [scratch + 48]
-
     mov eax, __NR_mmap
     xor edi, edi
     mov rsi, r13
     mov rdx, (PROT_READ or PROT_WRITE)
-    mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
-    xor r8, r8
-    dec r8
+    mov r10, (MAP_PRIVATE or MAP_POPULATE)
+    mov r8, r12
     xor r9, r9
     syscall
 
@@ -92,29 +94,6 @@ segment readable executable
     ja exit_failure_errno
 
     mov r8, rax
-
-    xor r14, r14
-    mov rbx, r13
-
-    @@:
-
-      mov rdx, r13
-      cmp rbx, rdx
-      cmovb rdx, rbx
-
-      mov eax, __NR_pread64
-      mov rdi, r12
-      lea rsi, [r8 + r14]
-      mov r10, r14
-      syscall
-
-      cmp rax, -4096
-      ja exit_failure_errno
-
-      add r14, rax
-      sub ebx, eax
-
-      jnz @b
 
     test r15, r15
     jnz list
@@ -413,6 +392,24 @@ segment readable executable
       jmp start.print_match_back
 
     list:
+    ; TODO: optimize by buffuring stdout
+    ; TODO: add tree mode
+
+      xor r15, r15
+
+      mov eax, __NR_mmap
+      xor edi, edi
+      mov rsi, filebuf_size
+      mov rdx, (PROT_READ or PROT_WRITE)
+      mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
+      syscall
+
+      cmp rax, -4096
+      ja exit_failure_errno
+
+      mov [filebufs], rax
+      mov [filebufs + 8], 0
+      mov [filebufs + 16], STDOUT_FILENO
 
       sub rsp, list_mode_buffer_size
       mov rbp, rsp
@@ -453,13 +450,13 @@ segment readable executable
 
         mov byte [rbp], _char_newline
 
-        mov eax, __NR_write
-        mov rdi, STDOUT_FILENO
         mov rsi, r14
-        mov rdx, rbp
-        sub rdx, r14
-        inc rdx
-        syscall
+        mov rcx, rbp
+        sub rcx, r14
+        inc rcx
+        mov rbx, r8
+        filebuf_write filebuf_size
+        mov r8, rbx
 
         cmp byte [rbp - 1], _char_slash
         cmovne rbp, r8
@@ -484,6 +481,12 @@ segment readable executable
         ret
 
       .end:
+
+      mov rsi, filebufs
+      mov rdx, [filebufs + 8]
+      mov r10, @f
+      jmp filebuf_flush
+      @@:
 
       mov eax, __NR_exit
       xor edi, edi
@@ -516,6 +519,8 @@ segment readable writeable
   root_offset rq 1
 
   path_in_db dq default_path_in_db
+
+  filebufs rq (max_threads * 4) ; 32 bytes padded
 
   scratch rb 144
 
