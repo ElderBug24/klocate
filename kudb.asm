@@ -643,13 +643,41 @@ segment readable executable
         or bl, dl
         jnz .ent_loop_skip
 
-        lea rdi, [r13 + 19]
-        xor eax, eax
-        xor ecx, ecx
-        dec rcx
-        cld
-        repne scasb
-        not rcx
+        lea rsi, [r13 + 19]
+
+        mov rdi, rsi
+        mov ecx, esi
+        and rdi, -8
+        and ecx, 7
+        shl ecx, 3
+        mov r8, 0x0101010101010101
+        mov r9, 0x8080808080808080
+
+        mov rdx, [rdi]
+        mov rax, -1
+        shl rax, cl
+        not rax
+        or rdx, rax
+
+        .check:
+
+          mov rax, rdx
+          sub rax, r8
+          not rdx
+          and rax, rdx
+          and rax, r9
+          jnz .found
+          add rdi, 8
+          mov rdx, [rdi]
+          jmp .check
+
+        .found:
+
+          bsf rcx, rax
+          shr ecx, 3
+          add rcx, rdi
+          sub rcx, rsi
+          inc rcx
 
         cmp byte [r13 + 18], DT_DIR
         je .ent_loop_dir
