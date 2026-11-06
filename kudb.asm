@@ -255,7 +255,6 @@ segment readable executable
     jmp walker
 
     thread_last:
-    ; TODO: map temp files before and replace splice with write
 
     mov rbx, [threads_count]
     shl rbx, 5
@@ -264,32 +263,37 @@ segment readable executable
     @@:
 
       mov eax, __NR_write
-      mov rsi, [filebufs + rbx]
       mov rdi, [filebufs + rbx + 16]
+      mov rsi, [filebufs + rbx]
       mov rdx, [filebufs + rbx + 8]
       syscall
+
+      ; TODO: use tfoffsets instead
+      mov eax, __NR_lseek
+      mov rdi, [filebufs + rbx + 16]
+      xor esi, esi
+      mov edx, SEEK_END
+      syscall
+
+      test rax, rax
+      jz .skip_mmap
+
+      mov rsi, rax
+      mov eax, __NR_mmap
+      xor edi, edi
+      mov rdx, PROT_READ
+      mov r10, (MAP_PRIVATE or MAP_POPULATE)
+      mov r8, [filebufs + rbx + 16]
+      xor r9, r9
+      syscall
+
+      .skip_mmap:
+      mov [filebufs + rbx + 24], rax
 
       sub rbx, 32
       jns @b
 
-    mov [tfoffsets], 0
-
-    mov eax, __NR_pipe
-    mov rdi, pipe_fds
-    syscall
-
-    mov eax, __NR_fcntl
-    mov edi, [pipe_fds]
-    mov rsi, F_GETPIPE_SZ
-    xor edx, edx
-    syscall
-
-    mov rbx, pipe_buf
-    cmp rax, -4096
-    cmova rax, rbx
-
-    mov r13, rax
-
+    xor r13, r13
     xor r15, r15
 
     push .exit
@@ -297,37 +301,12 @@ segment readable executable
     ; r15 : tmpfile index * 32
     .rec:
 
-      xor r14, r14
-      mov ebx, 17
+      add r13, 17
+      mov r10, [filebufs + r15 + 24]
+      add r10, r13
 
-      @@:
-
-        mov edx, 17
-        cmp ebx, edx
-        cmovb edx, ebx
-
-        mov eax, __NR_pread64
-        mov rdi, [filebufs + r15 + 16]
-        lea rsi, [scratch + r14]
-        mov r10, [tfoffsets]
-        add r10, r14
-        syscall
-
-        test rax, rax
-        jz .ret
-
-        cmp rax, -4096
-        ja exit_failure_errno
-
-        add r14, rax
-        sub ebx, eax
-
-        jnz @b
-
-      movzx eax, byte [scratch]
-      mov rbx, qword [scratch + 1]
-
-      add [tfoffsets], 17
+      movzx eax, byte [r10 - 17]
+      mov rbx, qword [r10 - 16]
 
       cmp al, action_dispatch
       je .dispatch
@@ -335,29 +314,13 @@ segment readable executable
 
       @@:
 
-        mov r12, rbx
-        cmp r12, r13
-        cmova r12, r13
-
-        mov eax, __NR_splice
-        mov rdi, [filebufs + r15 + 16]
-        lea rsi, [tfoffsets]
-        mov edx, [pipe_fds + 4]
-        xor r10, r10
-        mov r8, r12
-        xor r9, r9
+        mov eax, __NR_write
+        mov rdi, [out_db_fd]
+        mov rsi, r10
+        mov rdx, rbx
         syscall
 
-        mov r8, rax
-        mov eax, __NR_splice
-        mov edi, [pipe_fds]
-        xor esi, esi
-        mov rdx, [out_db_fd]
-        xor r10, r10
-        xor r9, r9
-        mov r9, SPLICE_F_MORE
-        syscall
-
+        add r13, rax
         sub rbx, rax
 
         jnz @b
@@ -366,17 +329,17 @@ segment readable executable
 
       .dispatch:
 
-        mov rcx, qword [scratch + 9]
+        mov rcx, qword [r10 - 8]
 
-        push [tfoffsets]
-        mov [tfoffsets], rbx
+        push r13
+        mov r13, rbx
         push r15
         mov r15, rcx
 
         call .rec
 
         pop r15
-        pop [tfoffsets]
+        pop r13
 
         jmp .rec
 
@@ -571,6 +534,8 @@ segment readable executable
       jmp filebuf_flush
       @@:
 
+      ; TODO: check if concerned bytes are still in buffer
+      ; same in walker.dispatch
       mov eax, __NR_pwrite64
       mov rdi, [filebufs + r15 + 16]
       lea rsi, [tfoffsets + r15 + 8]
