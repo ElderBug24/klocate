@@ -14,7 +14,6 @@ segment readable executable
 
   start:
 
-    cld
     mov r8, [rsp]
 
     xor eax, eax
@@ -28,8 +27,7 @@ segment readable executable
 
     mov rdi, rax
     xor eax, eax
-    xor ecx, ecx
-    dec rcx
+    or rcx, -1
     repne scasb
     not rcx
     dec rcx
@@ -48,9 +46,9 @@ segment readable executable
     .args_parsing_end:
 
     mov eax, __NR_openat
-    mov rdi, AT_FDCWD
+    mov edi, AT_FDCWD
     mov rsi, [path_in_db]
-    mov rdx, O_RDONLY
+    mov edx, O_RDONLY
     syscall
 
     mov rdi, [path_in_db]
@@ -84,7 +82,7 @@ segment readable executable
     mov eax, __NR_mmap
     xor edi, edi
     mov rsi, r13
-    mov rdx, (PROT_READ or PROT_WRITE)
+    mov edx, (PROT_READ or PROT_WRITE)
     mov r10, (MAP_PRIVATE or MAP_POPULATE)
     mov r8, r12
     xor r9, r9
@@ -104,8 +102,7 @@ segment readable executable
     mov r12, r8
 
     xor eax, eax
-    xor ecx, ecx
-    dec rcx
+    or rcx, -1
     mov rdi, r8
     repne scasb
     sub rdi, 2
@@ -166,8 +163,7 @@ segment readable executable
       mov r13, rdi
 
       xor eax, eax
-      xor ecx, ecx
-      dec rcx
+      or rcx, -1
       cld
       repne scasb
       not rcx
@@ -175,14 +171,13 @@ segment readable executable
 
       mov eax, __NR_write
       mov rsi, r13
-      mov rdi, STDERR_FILENO
+      mov edi, STDERR_FILENO
       mov rdx, rcx
       syscall
 
       mov eax, __NR_write
-      mov rdi, STDERR_FILENO
       mov rsi, msg_sep
-      mov rdx, msg_sep_len
+      mov edx, msg_sep_len
       syscall
 
       mov rax, r12
@@ -191,19 +186,15 @@ segment readable executable
       mov esi, dword [_errno_table_msg + 4 * rax + 4]
       movzx edx, byte [_errno_table_len + rax + 1]
       mov eax, __NR_write
-      mov rdi, STDERR_FILENO
       syscall
 
       mov eax, __NR_write
-      mov rdi, STDERR_FILENO
       mov rsi, char_newline
-      xor edx, edx
-      inc edx
+      or rdx, -1
       syscall
 
       mov eax, __NR_exit
-      xor edi, edi
-      inc edi
+      dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
     exit_failure_errno:
@@ -213,32 +204,28 @@ segment readable executable
       mov esi, dword [_errno_table_msg + 4 * rax + 4]
       movzx edx, byte [_errno_table_len + rax + 1]
       mov eax, __NR_write
-      mov rdi, STDERR_FILENO
+      mov edi, STDERR_FILENO
       syscall
 
       mov eax, __NR_write
-      mov rdi, STDERR_FILENO
       mov rsi, char_newline
-      xor edx, edx
-      inc edx
+      or rdx, -1
       syscall
 
       mov eax, __NR_exit
-      xor edi, edi
-      inc edi
+      dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
     exit_failure_too_many_args:
 
       mov eax, __NR_write
-      mov rdi, STDERR_FILENO
+      mov edi, STDERR_FILENO
       mov rsi, msg_err_too_many_args
-      mov rdx, msg_err_too_many_args_len
+      mov edx, msg_err_too_many_args_len
       syscall
 
       mov eax, __NR_exit
-      xor edi, edi
-      inc edi
+      dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
     ; r8 : ptr to the beginning of the file
@@ -255,8 +242,7 @@ segment readable executable
 
       mov rdi, r9
       xor eax, eax
-      xor ecx, ecx
-      dec rcx
+      or rcx, -1
       repne scasb
       not rcx
       dec rcx
@@ -325,8 +311,7 @@ segment readable executable
 
         .skip_dir:
 
-          xor ebx, ebx
-          inc ebx
+          mov ebx, 1
 
           mov eax, _char_slash
           mov rdi, r9
@@ -334,8 +319,7 @@ segment readable executable
 
           .skip_dir_loop:
 
-            xor ecx, ecx
-            dec rcx
+            or rcx, -1
             repne scasb
 
             xor edx, edx
@@ -378,11 +362,10 @@ segment readable executable
       rep movsb
 
       mov eax, __NR_write
-      mov rdi, STDOUT_FILENO
+      mov edi, STDOUT_FILENO
       mov rsi, rsp
-      mov rdx, rbp
+      lea rdx, [rbp + 1]
       sub rdx, rsp
-      inc rdx
       mov rbx, r11
       syscall
       mov r11, rbx
@@ -392,15 +375,13 @@ segment readable executable
       jmp start.print_match_back
 
     list:
-    ; TODO: optimize by buffuring stdout
-    ; TODO: add tree mode
 
       xor r15, r15
 
       mov eax, __NR_mmap
       xor edi, edi
-      mov rsi, filebuf_size
-      mov rdx, (PROT_READ or PROT_WRITE)
+      mov esi, filebuf_size
+      mov edx, (PROT_READ or PROT_WRITE)
       mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
       syscall
 
@@ -451,9 +432,8 @@ segment readable executable
         mov byte [rbp], _char_newline
 
         mov rsi, r14
-        mov rcx, rbp
+        lea rcx, [rbp + 1]
         sub rcx, r14
-        inc rcx
         mov rbx, r8
         filebuf_write filebuf_size
         mov r8, rbx
@@ -478,6 +458,7 @@ segment readable executable
       .ret:
 
         inc r13
+
         ret
 
       .end:

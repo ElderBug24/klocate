@@ -4,7 +4,8 @@
 ; len rq 1
 ; fd rq 1
 
-; TODO: pass in filebuf size as macro constant
+; TODO: parallelize writes
+; TODO: add operations that dont check for space because the data to write is small enough and add some additional space in the buffer
 
 ; rsi : source
 ; rcx : count
@@ -32,7 +33,6 @@ macro filebuf_write cap {
   add rdi, qword [filebufs + r15 + 8]
   mov rsi, r8
   mov rcx, r9
-  cld
   rep movsb
 
   add qword [filebufs + r15 + 8], r9
@@ -89,7 +89,6 @@ macro filebuf_write_m1_and_2_chars cs, cap {
   add rdi, qword [filebufs + r15 + 8]
   mov rsi, r8
   mov rcx, r9
-  cld
   rep movsb
   mov word [rdi], cs
 
@@ -184,6 +183,8 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
 }
 
 segment readable executable
+
+  ; TODO: make a macro
 
   if used filebuf_flush
 
