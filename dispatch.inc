@@ -15,8 +15,7 @@ macro dispatch_lock_state {
 
   .try:
 
-    xor eax, eax
-    inc eax
+    mov eax, 1
     xchg [dispatch_lock], rax
     test al, al
     jz .end
@@ -61,7 +60,7 @@ macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_
 
     mov eax, __NR_futex
     mov rdi, rsp
-    mov rsi, (FUTEX_WAIT or FUTEX_PRIVATE_FLAG)
+    mov esi, (FUTEX_WAIT or FUTEX_PRIVATE_FLAG)
     xor edx, edx
     xor r10, r10
     syscall
@@ -108,7 +107,7 @@ macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
   mov dword [rdi], 1
 
   mov eax, __NR_futex
-  mov rsi, (FUTEX_WAKE or FUTEX_PRIVATE_FLAG)
+  mov esi, (FUTEX_WAKE or FUTEX_PRIVATE_FLAG)
   mov edx, 1
   syscall
 
