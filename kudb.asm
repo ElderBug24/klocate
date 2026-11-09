@@ -1,6 +1,7 @@
 format ELF64 executable 3
 entry start
 
+_debug_tmpfile_name = 1
 ; _errno_compact = 1
 include "constants.inc"
 include "realpath.inc"
@@ -452,48 +453,56 @@ segment readable executable
     shl r15, 5
     mov qword [rsp], thread_sleep
 
-    ; TODO: this section is only useful for debugging
     mov rbp, rsp
-    sub rsp, (tmpfile_debug_name_len + 16)
 
-    mov rdi, rsp
-    mov rsi, tmpfile_debug_name
-    mov ecx, tmpfile_debug_name_len
-    rep movsb
+    if defined _debug_tmpfile_name
 
-    mov r11, rdi
+      sub rsp, (tmpfile_debug_name_len + 16)
 
-    lea rdi, [rsp + tmpfile_debug_name_len + 16 - 1]
+      mov rdi, rsp
+      mov rsi, tmpfile_debug_name
+      mov ecx, tmpfile_debug_name_len
+      rep movsb
 
-    mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
+      mov r11, rdi
 
-    .id_fmt_loop:
+      lea rdi, [rsp + tmpfile_debug_name_len + 16 - 1]
 
-      mov rcx, rax
-      mul rbx
-      shr rdx, 3
-      lea rax, [4 * rdx + rdx]
-      add rax, rax
-      sub rcx, rax
-      mov rax, rdx
+      mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
 
-      add ecx, _char_zero
-      mov [rdi], cl
-      dec rdi
+      .id_fmt_loop:
 
-      test rax, rax
-      jnz .id_fmt_loop
+        mov rcx, rax
+        mul rbx
+        shr rdx, 3
+        lea rax, [4 * rdx + rdx]
+        add rax, rax
+        sub rcx, rax
+        mov rax, rdx
 
-    lea rcx, [rsp + tmpfile_debug_name_len + 16 - 1]
-    sub rcx, rdi
-    lea rsi, [rdi + 1]
-    mov rdi, r11
+        add ecx, _char_zero
+        mov [rdi], cl
+        dec rdi
 
-    rep movsb
-    mov byte [rdi], 0
+        test rax, rax
+        jnz .id_fmt_loop
+
+      lea rcx, [rsp + tmpfile_debug_name_len + 16 - 1]
+      sub rcx, rdi
+      lea rsi, [rdi + 1]
+      mov rdi, r11
+
+      rep movsb
+      mov byte [rdi], 0
+
+    end if
 
     mov eax, __NR_memfd_create
-    mov rdi, rsp
+    if defined _debug_tmpfile_name
+      mov rdi, rsp
+    else
+      mov rdi, tmpfile_debug_name
+    end if
     xor esi, esi
     syscall
 
@@ -817,7 +826,10 @@ segment readable
 
   tmpfile_debug_name db "tmpfile"
   tmpfile_debug_name_len = $ - tmpfile_debug_name
-  db _char_zero, _char_null
+  if defined _debug_tmpfile_name
+    db _char_zero
+  end if
+  db _char_null
 
 segment readable writeable
 
