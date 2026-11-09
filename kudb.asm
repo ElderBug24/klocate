@@ -8,17 +8,17 @@ include "realpath.inc"
 include "filebuf.inc"
 include "dispatch.inc"
 
-_pagesize = 4096
-realpath_buf_size = (4 * _pagesize)
-dents_buf_size    = (2 * _pagesize)
-filebuf_size      = (8 * _pagesize)
-pipe_buf = _pagesize
-max_threads = 64 ; TODO: get rid of all limitaions imposed at assembly time
+_pagesize             = 4096
+realpath_buf_size     = (4 * _pagesize)
+dents_buf_size        = (2 * _pagesize)
+filebuf_size          = (8 * _pagesize)
+pipe_buf              = _pagesize
+max_threads           = 64 ; TODO: get rid of all limitaions imposed at assembly time
 default_threads_count = 4
 thread_stack_size_exp = 24
-thread_stack_size = (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
-scratch_size_exp = 8
-scratch_size = (1 shl scratch_size_exp)
+thread_stack_size     = (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
+scratch_size_exp      = 8
+scratch_size          = (1 shl scratch_size_exp)
 
 action_work     = 0
 action_dispatch = 1
@@ -807,8 +807,8 @@ segment readable
   }
 
   msg_err_too_many_threads db "Too many threads (max: "
-  db_int max_threads
-  db ")", 10
+                                               db_int max_threads
+                                                              db ")", 10
   msg_err_too_many_threads_len = $ - msg_err_too_many_threads
 
   default_path_root_dir   db "/", _char_null
