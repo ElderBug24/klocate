@@ -1,13 +1,13 @@
 format ELF64 executable 3
 entry start
 
-_errno_compact = 1
+; _errno_compact = 1
 include "constants.inc"
 include "filebuf.inc"
 
-_pagesize = 4096
+_pagesize             = 4096
 filebuf_size          = (8 * _pagesize)
-max_threads = 64
+max_threads           = 64
 list_mode_buffer_size = (8 * _pagesize)
 
 segment readable executable
@@ -190,7 +190,7 @@ segment readable executable
 
       mov eax, __NR_write
       mov rsi, char_newline
-      or rdx, -1
+      mov edx, 1
       syscall
 
       mov eax, __NR_exit
@@ -209,7 +209,7 @@ segment readable executable
 
       mov eax, __NR_write
       mov rsi, char_newline
-      or rdx, -1
+      mov edx, 1
       syscall
 
       mov eax, __NR_exit
@@ -488,7 +488,7 @@ segment readable
                         db        "Too many arguments", _char_newline
   msg_err_too_many_args_len = $ - msg_err_too_many_args
 
-  default_path_in_db     db "/var/cache/klocate/db", _char_null
+  default_path_in_db db "/var/cache/klocate/db", _char_null
 
 segment readable writeable
 

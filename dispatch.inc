@@ -2,7 +2,7 @@
 macro dispatch_declare max {
 
   align 64
-  dispatch_lock dq 0
+  dispatch_lock  dq 0
   dispatch_count dq 0
   dispatch_stack rq max
 
