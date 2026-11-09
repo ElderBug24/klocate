@@ -171,11 +171,8 @@ segment readable executable
 
     filebuf_write_1_char _char_null, filebuf_size
 
-    mov rsi, filebufs
     mov rdx, [filebufs + 8]
-    mov r10, @f
-    jmp filebuf_flush
-    @@:
+    filebuf_flush_buffer filebufs
 
     add rsp, realpath_buf_size
 
@@ -523,11 +520,8 @@ segment readable executable
 
       filebuf_write_1_char_and_skip_n action_end, 16, filebuf_size
 
-      lea rsi, [filebufs + r15]
       mov rdx, [filebufs + r15 + 8]
-      mov r10, @f
-      jmp filebuf_flush
-      @@:
+      filebuf_flush_buffer (filebufs + r15)
 
       ; TODO: check if concerned bytes are still in buffer
       ; same in walker.dispatch
@@ -661,7 +655,7 @@ segment readable executable
         lea rsi, [r13 + 19]
         lea rbx, [rcx + 1]
         add [tfoffsets + r15 + 8], rbx
-        filebuf_write_m1_and_2_chars _char_slash, filebuf_size ; ".\0"
+        filebuf_write_m1_and_2_chars _char_slash, filebuf_size ; "/\0"
 
         mov eax, __NR_openat
         mov rdi, r12
@@ -751,11 +745,8 @@ segment readable executable
 
     .dispatch:
 
-      lea rsi, [filebufs + r15]
       mov rdx, [filebufs + r15 + 8]
-      mov r10, @f
-      jmp filebuf_flush
-      @@:
+      filebuf_flush_buffer (filebufs + r15)
 
       mov eax, __NR_pwrite64
       mov rdi, [filebufs + r15 + 16]

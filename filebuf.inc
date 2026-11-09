@@ -1,8 +1,8 @@
 
 ; filebuf structure:
-; ptr rq 1
-; len rq 1
-; fd rq 1
+;   ptr rq 1
+;   len rq 1
+;   fd  rq 1
 
 ; TODO: parallelize writes
 ; TODO: add operations that dont check for space because the data to write is small enough and add some additional space in the buffer
@@ -25,7 +25,7 @@ macro filebuf_write cap {
 
   mov r10, .back
 
-  ja filebuf_flush
+  ja filebuf_flush_label
 
   .back:
 
@@ -52,7 +52,7 @@ macro filebuf_write_1_char c, cap {
   cmp rax, cap
 
   mov r10, .back
-  ja filebuf_flush
+  ja filebuf_flush_label
 
   .back:
 
@@ -81,7 +81,7 @@ macro filebuf_write_m1_and_2_chars cs, cap {
   cmp rax, cap
 
   mov r10, .back
-  ja filebuf_flush
+  ja filebuf_flush_label
 
   .back:
 
@@ -110,7 +110,7 @@ macro filebuf_write_1_char_and_skip_n c, n, cap {
   cmp rax, cap
 
   mov r10, .back
-  ja filebuf_flush
+  ja filebuf_flush_label
 
   .back:
 
@@ -137,7 +137,7 @@ macro filebuf_write_1_char_and_8 c, cap {
   cmp rax, cap
 
   mov r10, .back
-  ja filebuf_flush
+  ja filebuf_flush_label
 
   .back:
 
@@ -167,7 +167,7 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
   cmp rax, cap
 
   mov r10, .back
-  ja filebuf_flush
+  ja filebuf_flush_label
 
   .back:
 
@@ -182,23 +182,38 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
 
 }
 
+; rdx : count
+; destroys : rax, rcx, rsi, rdi, r11
+macro filebuf_flush_buffer buffer {
+
+  mov qword [buffer + 8], 0
+
+  mov eax, __NR_write
+  mov rdi, [buffer + 16]
+  mov rsi, [buffer]
+  syscall
+
+}
+
+; rsi : buffer struct
+; rdx : count
+; destroys : rax, rcx, rsi, rdi, r11
+macro filebuf_flush {
+
+  filebuf_flush_buffer rsi
+
+}
+
 segment readable executable
 
-  ; TODO: make a macro
-
-  if used filebuf_flush
+  if used filebuf_flush_label
 
     ; rsi : buffer struct
     ; rdx : count
     ; destroys : rax, rcx, rsi, rdi, r11
-    filebuf_flush:
+    filebuf_flush_label:
 
-      mov qword [rsi + 8], 0
-
-      mov eax, __NR_write
-      mov rdi, [rsi + 16]
-      mov rsi, [rsi]
-      syscall
+      filebuf_flush
 
       jmp r10
 
