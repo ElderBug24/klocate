@@ -463,11 +463,8 @@ segment readable executable
 
       .end:
 
-      mov rsi, filebufs
       mov rdx, [filebufs + 8]
-      mov r10, @f
-      jmp filebuf_flush
-      @@:
+      filebuf_flush_buffer filebufs
 
       mov eax, __NR_exit
       xor edi, edi
