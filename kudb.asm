@@ -87,6 +87,11 @@ segment readable executable
 
     .different_path_out:
 
+    mov eax, STDOUT_FILENO
+    mov rsi, qword [path_out_db]
+    cmp word [rsi], _char_hyphen
+    je .out_is_stdout
+
     mov eax, __NR_openat
     mov edi, AT_FDCWD
     mov rsi, [path_out_db]
@@ -97,6 +102,7 @@ segment readable executable
     cmp rax, -4096
     mov rdi, [path_out_db]
     ja exit_failure_errno_path
+    .out_is_stdout:
     mov [out_db_fd], rax
     mov [filebufs + 16], rax
 
@@ -797,6 +803,7 @@ segment readable
 
   _char_null    = 0
   _char_newline = 10
+  _char_hyphen  = '-'
   _char_dot     = '.'
   _char_slash   = '/'
   _char_zero    = '0'
