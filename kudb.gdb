@@ -4,5 +4,6 @@ layout regs
 set print array on
 
 # run / /var/cache/klocate/db 1
-run test_fs /var/cache/klocate/db 3
+# run test_fs /var/cache/klocate/db 4
+run
 
