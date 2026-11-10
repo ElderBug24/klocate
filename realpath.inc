@@ -13,7 +13,7 @@ include "constants.inc"
     mov rdi, (realpath_fmt_buf + realpath_fmt_buf_size - 1)
     mov r11, rdi
 
-    mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
+    mov rbx, 0xCCCCCCCCCCCCCCCD
 
     .fmt_loop:
 

@@ -4,6 +4,8 @@
 ;   len rq 1
 ;   fd  rq 1
 
+_filebuf_nocheck_buffer_size = 64
+
 ; TODO: parallelize writes
 ; TODO: add operations that dont check for space because the data to write is small enough and add some additional space in the buffer
 
@@ -21,7 +23,7 @@ macro filebuf_write cap {
 
   mov rdx, [filebufs + r15 + 8]
   lea rax, [rdx + rcx]
-  cmp rax, cap
+  cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
   mov r10, .back
 
@@ -39,6 +41,21 @@ macro filebuf_write cap {
 
 }
 
+; rsi : source
+; rcx : count
+; r15 : id * 32
+; destroys: rax, rcx, rsi, rdi
+macro filebuf_write_nocheck {
+
+  mov rax, rcx
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 8]
+  rep movsb
+
+  add qword [filebufs + r15 + 8], rax
+
+}
+
 ; r15 : id * 32
 ; destroys : rax, rcx, rdx, rsi, rdi, r10, r11
 macro filebuf_write_1_char c, cap {
@@ -49,12 +66,24 @@ macro filebuf_write_1_char c, cap {
 
   mov rdx, [filebufs + r15 + 8]
   lea rax, [rdx + 1]
-  cmp rax, cap
+  cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
   mov r10, .back
   ja filebuf_flush_label
 
   .back:
+
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 8]
+  mov byte [rdi], c
+
+  inc qword [filebufs + r15 + 8]
+
+}
+
+; r15 : id * 32
+; destroys : rsi, rdi
+macro filebuf_write_1_char_nocheck c {
 
   mov rdi, [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
@@ -78,7 +107,7 @@ macro filebuf_write_m1_and_2_chars cs, cap {
 
   mov rdx, [filebufs + r15 + 8]
   lea rax, [rdx + rcx + 2]
-  cmp rax, cap
+  cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
   mov r10, .back
   ja filebuf_flush_label
@@ -107,12 +136,24 @@ macro filebuf_write_1_char_and_skip_n c, n, cap {
 
   mov rdx, [filebufs + r15 + 8]
   lea rax, [rdx + (1 + n)]
-  cmp rax, cap
+  cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
   mov r10, .back
   ja filebuf_flush_label
 
   .back:
+
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 8]
+  mov byte [rdi], c
+
+  add qword [filebufs + r15 + 8], (1 + n)
+
+}
+
+; r15 : id * 32
+; destroys : rsi, rdi
+macro filebuf_write_1_char_and_skip_n_nocheck c, n {
 
   mov rdi, [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
@@ -134,7 +175,7 @@ macro filebuf_write_1_char_and_8 c, cap {
 
   mov rdx, [filebufs + r15 + 8]
   lea rax, [rdx + 9]
-  cmp rax, cap
+  cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
   mov r10, .back
   ja filebuf_flush_label
@@ -164,7 +205,7 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
 
   mov rdx, [filebufs + r15 + 8]
   lea rax, [rdx + 34]
-  cmp rax, cap
+  cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
   mov r10, .back
   ja filebuf_flush_label
@@ -176,6 +217,23 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
   mov byte [rdi], c1
   mov qword [rdi + 1], r8
   mov qword [rdi + 9], r9
+  mov byte [rdi + 17], c2
+
+  add qword [filebufs + r15 + 8], 34
+
+}
+
+; rax : chars
+; rbx : chars
+; r15 : id * 32
+; destroys : rdi
+macro filebuf_write_1_char_and_16_and_1_char_and_skip_16_nocheck c1, c2 {
+
+  mov rdi, [filebufs + r15]
+  add rdi, qword [filebufs + r15 + 8]
+  mov byte [rdi], c1
+  mov qword [rdi + 1], rax
+  mov qword [rdi + 9], rbx
   mov byte [rdi + 17], c2
 
   add qword [filebufs + r15 + 8], 34
