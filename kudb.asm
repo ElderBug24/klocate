@@ -265,16 +265,10 @@ segment readable executable
       mov rdx, [filebufs + rbx + 8]
       syscall
 
-      ; TODO: use tfoffsets instead
-      mov eax, __NR_lseek
-      xor esi, esi
-      mov edx, SEEK_END
-      syscall
-
-      test rax, rax
+      mov rsi, [tfoffsets + rbx]
+      test rsi, rsi
       jz .skip_mmap
 
-      mov rsi, rax
       mov eax, __NR_mmap
       xor edi, edi
       mov edx, PROT_READ
@@ -518,13 +512,26 @@ segment readable executable
       mov rdi, r12
       syscall
 
+      mov rax, [tfoffsets + r15 + 8]
+      lea rsi, [rax + 16]
+      mov rcx, [filebufs + r15 + 8]
+      cmp rsi, rcx
+      ja .not_cached
+
+      mov rdi, [filebufs + r15]
+      add rdi, rcx
+      sub rdi, rsi
+
+      mov [rdi], rax
+
       filebuf_write_1_char_and_skip_n action_end, 16, filebuf_size
 
-      mov rdx, [filebufs + r15 + 8]
-      filebuf_flush_buffer (filebufs + r15)
+      jmp @f
 
-      ; TODO: check if concerned bytes are still in buffer
-      ; same in walker.dispatch
+      .not_cached:
+
+      filebuf_write_1_char_and_skip_n action_end, 16, filebuf_size
+
       mov eax, __NR_pwrite64
       mov rdi, [filebufs + r15 + 16]
       lea rsi, [tfoffsets + r15 + 8]
@@ -532,6 +539,8 @@ segment readable executable
       mov r10, [tfoffsets + r15]
       inc r10
       syscall
+
+      @@:
 
       mov rax, [tfoffsets + r15 + 8]
       add rax, 34
@@ -745,8 +754,21 @@ segment readable executable
 
     .dispatch:
 
-      mov rdx, [filebufs + r15 + 8]
-      filebuf_flush_buffer (filebufs + r15)
+      mov rax, [tfoffsets + r15 + 8]
+      lea rsi, [rax + 16]
+      mov rcx, [filebufs + r15 + 8]
+      cmp rsi, rcx
+      ja .not_cached
+
+      mov rdi, [filebufs + r15]
+      add rdi, rcx
+      sub rdi, rsi
+
+      mov [rdi], rax
+
+      jmp @f
+
+      .not_cached:
 
       mov eax, __NR_pwrite64
       mov rdi, [filebufs + r15 + 16]
@@ -755,6 +777,8 @@ segment readable executable
       mov r10, [tfoffsets + r15]
       inc r10
       syscall
+
+      @@:
 
       mov rax, [tfoffsets + r15 + 8]
       add rax, 34
