@@ -160,16 +160,16 @@ segment readable executable
 
     mov rsi, rsp
     mov rcx, rax
-    filebuf_write filebuf_size
+    filebuf_write_nocheck
 
     cmp byte [rsp + r14 - 1], _char_slash
     je @f
 
-    filebuf_write_1_char _char_slash, filebuf_size
+    filebuf_write_1_char_nocheck _char_slash
 
     @@:
 
-    filebuf_write_1_char _char_null, filebuf_size
+    filebuf_write_1_char_nocheck _char_null
 
     mov rdx, [filebufs + 8]
     filebuf_flush_buffer filebufs
@@ -224,7 +224,7 @@ segment readable executable
 
     xor r15, r15
 
-    filebuf_write_1_char_and_skip_n action_work, 16, filebuf_size
+    filebuf_write_1_char_and_skip_n_nocheck action_work, 16
 
     mov r13, [threads_count]
     dec r13
@@ -253,19 +253,19 @@ segment readable executable
 
     thread_last:
 
-    mov rbx, [threads_count]
-    shl rbx, 5
-    sub rbx, 32
+    mov r15, [threads_count]
+    shl r15, 5
+    sub r15, 32
 
     @@:
 
       mov eax, __NR_write
-      mov rdi, [filebufs + rbx + 16]
-      mov rsi, [filebufs + rbx]
-      mov rdx, [filebufs + rbx + 8]
+      mov rdi, [filebufs + r15 + 16]
+      mov rsi, [filebufs + r15]
+      mov rdx, [filebufs + r15 + 8]
       syscall
 
-      mov rsi, [tfoffsets + rbx]
+      mov rsi, [tfoffsets + r15]
       test rsi, rsi
       jz .skip_mmap
 
@@ -273,14 +273,14 @@ segment readable executable
       xor edi, edi
       mov edx, PROT_READ
       mov r10, (MAP_PRIVATE or MAP_POPULATE)
-      mov r8, [filebufs + rbx + 16]
+      mov r8, [filebufs + r15 + 16]
       xor r9, r9
       syscall
 
       .skip_mmap:
-      mov [filebufs + rbx + 24], rax
+      mov [filebufs + r15 + 24], rax
 
-      sub rbx, 32
+      sub r15, 32
       jns @b
 
     xor r13, r13
@@ -459,7 +459,7 @@ segment readable executable
 
       lea rdi, [rsp + tmpfile_debug_name_len + 16 - 1]
 
-      mov rbx, 0xCCCCCCCCCCCCCCCD ; 2^66 / 5
+      mov rbx, 0xCCCCCCCCCCCCCCCD
 
       .id_fmt_loop:
 
@@ -524,13 +524,13 @@ segment readable executable
 
       mov [rdi], rax
 
-      filebuf_write_1_char_and_skip_n action_end, 16, filebuf_size
+      filebuf_write_1_char_and_skip_n_nocheck action_end, 16
 
       jmp @f
 
       .not_cached:
 
-      filebuf_write_1_char_and_skip_n action_end, 16, filebuf_size
+      filebuf_write_1_char_and_skip_n_nocheck action_end, 16
 
       mov eax, __NR_pwrite64
       mov rdi, [filebufs + r15 + 16]
@@ -559,7 +559,7 @@ segment readable executable
 
     dispatch_worker_idle r12, r15, threads_count, thread_last
 
-    filebuf_write_1_char_and_skip_n action_work, 16, filebuf_size
+    filebuf_write_1_char_and_skip_n_nocheck action_work, 16
 
     ; fallthrough
 
@@ -567,7 +567,7 @@ segment readable executable
   walker:
 
     mov byte [rsp - 1], 0
-    sub rsp, (dents_buf_size + 1 + 7) ; room to check for ".\0" or "..\0" and 7 bytes of padding
+    sub rsp, (dents_buf_size + 8) ; room to check for ".\0" or "..\0", 8 bytes padded
 
     .loop:
 
@@ -746,7 +746,7 @@ segment readable executable
     .on_openat_err:
 
       inc qword [tfoffsets + r15 + 8]
-      filebuf_write_1_char _char_slash, filebuf_size
+      filebuf_write_1_char_nocheck _char_slash
 
       mov rsi, r13
 
@@ -786,7 +786,7 @@ segment readable executable
       mov qword [tfoffsets + r15 + 8], 0
 
       mov rax, r8
-      filebuf_write_1_char_and_16_and_1_char_and_skip_16 action_dispatch, action_work, filebuf_size
+      filebuf_write_1_char_and_16_and_1_char_and_skip_16_nocheck action_dispatch, action_work
 
       jmp .ent_loop_skip
 

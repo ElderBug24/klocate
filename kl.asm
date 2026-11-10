@@ -12,6 +12,8 @@ list_mode_buffer_size = (8 * _pagesize)
 
 segment readable executable
 
+; TODO: option to filter files that do not exist anymore
+
   start:
 
     mov r8, [rsp]
