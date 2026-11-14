@@ -98,65 +98,10 @@ segment readable executable
     test r15, r15
     jnz list
 
-    mov r11, r13
-    mov r14, [querry]
-    mov r13, [querry_size]
-    mov r12, r8
-
-    xor eax, eax
-    or rcx, -1
-    mov rdi, r8
-    repne scasb
-    sub rdi, 2
-    mov [root_offset], rdi
-
-    mov r10, r12
-    .loop:
-
-      mov rcx, r11
-      mov rdi, r10
-
-      mov al, [r14]
-      repne scasb
-
-      test rcx, rcx
-      jz .end
-
-      mov r11, rcx
-      mov r10, rdi
-
-      lea rsi, [r14 + 1]
-      mov rcx, [querry_size]
-      dec rcx
-      repe cmpsb
-
-      jnz .loop
-
-      lea rdi, [r10 - 1]
-
-      .skip_file_loop:
-
-        mov al, [rdi]
-        dec rdi
-
-        test al, al
-        jz .skip_file_loop_end
-        cmp al, _char_slash
-        jne .skip_file_loop
-
-      .skip_file_loop_end:
-
-      lea r9, [rdi + 2]
-
-      jmp print_match
-      .print_match_back:
-
-      jmp .loop
-
-    .end:
+    ; TODO: querry mode
 
     mov eax, __NR_exit
-    xor edi, edi
+    mov edi, 1
     syscall
 
     exit_failure_errno_path:
@@ -230,151 +175,14 @@ segment readable executable
       dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
-    ; r8 : ptr to the beginning of the file
-    ; r9 : ptr to the match
-    print_match:
+    ; rsi : source
+    ; rcx : size of source
+    ; destroys: rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
+    filter_entry:
 
-      cld
+      filebuf_write filebuf_size
 
-      mov rbp, rsp
-      dec rsp
-      mov byte [rsp], _char_newline
-
-      ; TODO: move in reverse, keeping the rdi of before the call
-
-      mov rdi, r9
-      xor eax, eax
-      or rcx, -1
-      repne scasb
-      not rcx
-      dec rcx
-
-      sub rsp, rcx
-
-      mov rsi, r9
-      mov rdi, rsp
-      rep movsb
-
-      sub r9, 2
-
-      .loop:
-
-        mov ax, word [r9]
-        test ah, ah
-        jnz .skip_dir
-
-        cmp al, _char_slash
-        je .copy_dir
-
-        .skip_file_loop:
-
-          mov al, [r9]
-          dec r9
-
-          test al, al
-          jz .skip_file_loop_end
-          cmp al, _char_slash
-          jne .skip_file_loop
-
-        .skip_file_loop_end:
-
-        jmp .loop
-
-        .copy_dir:
-
-          cmp r9, [root_offset]
-          je .copy_root
-
-          mov rsi, r9
-          mov rdi, rsp
-
-          mov al, byte [rsi]
-
-          .copy_dir_loop:
-
-            mov [rdi - 1], al
-            dec rdi
-
-            dec rsi
-            mov al, [rsi]
-
-            test al, al
-            jz .copy_dir_loop_end
-            cmp al, _char_slash
-            jne .copy_dir_loop
-
-          .copy_dir_loop_end:
-
-          lea r9, [rsi - 1]
-
-          mov rsp, rdi
-
-        jmp .loop
-
-        .skip_dir:
-
-          mov ebx, 1
-
-          mov eax, _char_slash
-          mov rdi, r9
-          std
-
-          .skip_dir_loop:
-
-            or rcx, -1
-            repne scasb
-
-            xor edx, edx
-            cmp byte [rdi + 2], _char_null
-            setne dl
-            add edx, edx
-            dec rdx
-            add rbx, rdx
-
-            jnz .skip_dir_loop
-
-          .skip_dir_name_loop:
-
-            mov al, [rdi]
-            dec rdi
-
-            test al, al
-            jz .skip_dir_name_loop_end
-            cmp al, _char_slash
-            jne .skip_dir_name_loop
-
-          .skip_dir_name_loop_end:
-
-          mov r9, rdi
-
-          cld
-
-        jmp .loop
-
-      .copy_root:
-
-      mov rcx, [root_offset]
-      sub rcx, r8
-      inc rcx
-
-      sub rsp, rcx
-
-      mov rsi, r8
-      mov rdi, rsp
-      rep movsb
-
-      mov eax, __NR_write
-      mov edi, STDOUT_FILENO
-      mov rsi, rsp
-      lea rdx, [rbp + 1]
-      sub rdx, rsp
-      mov rbx, r11
-      syscall
-      mov r11, rbx
-
-      mov rsp, rbp
-
-      jmp start.print_match_back
+      ret
 
     list:
 
@@ -382,7 +190,7 @@ segment readable executable
 
       mov eax, __NR_mmap
       xor edi, edi
-      mov esi, filebuf_size
+      mov esi, (filebuf_size + list_mode_buffer_size)
       mov edx, (PROT_READ or PROT_WRITE)
       mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
       syscall
@@ -390,32 +198,26 @@ segment readable executable
       cmp rax, -4096
       ja exit_failure_errno
 
-      mov [filebufs], rax
-      mov [filebufs + 8], 0
-      mov [filebufs + 16], STDOUT_FILENO
+      mov [filebufs + r15], rax
+      mov [filebufs + r15 + 8], 0
+      mov [filebufs + r15 + 16], STDOUT_FILENO
 
-      sub rsp, list_mode_buffer_size
-      mov rbp, rsp
-      mov r14, rbp
-      lea r12, [r8 + r13]
+      lea rbp, [rax + filebuf_size]
       mov r13, r8
-
-      push rbp
-      push .end
 
       jmp .skip_ahead
 
       .rec:
 
-        cmp r13, r12
-        jae .end
+        cmp byte [r13], _char_null
+        je .end
 
         cmp byte [r13], _char_slash
         je .ret
 
         .skip_ahead:
 
-        mov r8, rbp
+        mov rbx, rbp
 
         mov al, [r13]
         inc r13
@@ -433,20 +235,19 @@ segment readable executable
 
         mov byte [rbp], _char_newline
 
-        mov rsi, r14
+        mov rsi, [filebufs + r15]
+        add rsi, filebuf_size
         lea rcx, [rbp + 1]
-        sub rcx, r14
-        mov rbx, r8
+        sub rcx, rsi
         filebuf_write filebuf_size
-        mov r8, rbx
 
         cmp byte [rbp - 1], _char_slash
-        cmovne rbp, r8
+        cmovne rbp, rbx
         jne .rec
 
         .dir:
 
-          push r8
+          push rbx
           push @f
 
           jmp .rec
@@ -465,8 +266,8 @@ segment readable executable
 
       .end:
 
-      mov rdx, [filebufs + 8]
-      filebuf_flush_buffer filebufs
+      mov rdx, [filebufs + r15 + 8]
+      filebuf_flush_buffer (filebufs + r15)
 
       mov eax, __NR_exit
       xor edi, edi

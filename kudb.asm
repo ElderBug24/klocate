@@ -294,6 +294,9 @@ segment readable executable
 
     push .exit
 
+    ; TODO: use register instead of out_db_fd
+    ; TODO: buffer output
+
     ; r15 : tmpfile index * 32
     .rec:
 
@@ -344,6 +347,12 @@ segment readable executable
         ret
 
     .exit:
+
+      mov eax, __NR_write
+      mov rdi, [out_db_fd]
+      mov rsi, char_null
+      mov edx, 2
+      syscall
 
       mov eax, __NR_exit_group
       xor edi, edi
@@ -851,7 +860,7 @@ segment readable
   if defined _debug_tmpfile_name
     db _char_zero
   end if
-  db _char_null
+  char_null db 2 dup _char_null
 
 segment readable writeable
 

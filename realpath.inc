@@ -2,8 +2,8 @@
 include "constants.inc"
 
   ; rax : fd
-  ; rdi : pointer to destination buffer
-  ; rdx : size of destination buffer
+  ; rdi : dest
+  ; rdx : size of dest
   ; destroys : rax, rbx, rcx, rdx, rsi, rdi, r11, r12, r13, r14
   macro realpath_fd {
 
