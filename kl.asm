@@ -33,7 +33,7 @@ segment readable executable
 
   start:
 
-    mov r8, [rsp]
+    mov r8, qword [rsp]
 
     mov r12, (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
 
@@ -43,8 +43,8 @@ segment readable executable
     mov r15, rax
     jb .args_parsing_end
 
-    mov rax, [rsp + 16]
-    mov [querry], rax
+    mov rax, qword [rsp + 16]
+    mov qword [querry], rax
 
     mov rdi, rax
     xor eax, eax
@@ -52,13 +52,13 @@ segment readable executable
     repne scasb
     not rcx
     dec rcx
-    mov [querry_size], rcx
+    mov qword [querry_size], rcx
 
     cmp r8, 3
     jb .args_parsing_end
 
-    mov rax, [rsp + 24]
-    mov [path_in_db], rax
+    mov rax, qword [rsp + 24]
+    mov qword [path_in_db], rax
 
     ja exit_failure_too_many_args
 
@@ -66,15 +66,15 @@ segment readable executable
 
     .args_parsing_end:
 
-    mov [features], r12
+    mov qword [features], r12
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
-    mov rsi, [path_in_db]
+    mov rsi, qword [path_in_db]
     mov edx, O_RDONLY
     syscall
 
-    mov rdi, [path_in_db]
+    mov rdi, qword [path_in_db]
     cmp rax, -4096
     ja exit_failure_errno_path
     mov r12, rax
@@ -86,7 +86,7 @@ segment readable executable
 
     mov r13, qword [scratch + 48]
 
-    mov rdi, [path_in_db]
+    mov rdi, qword [path_in_db]
     cmp rax, -4096
     ja exit_failure_errno_path
 
@@ -219,9 +219,9 @@ segment readable executable
       cmp rax, -4096
       ja exit_failure_errno
 
-      mov [filebufs + r15], rax
-      mov [filebufs + r15 + 8], 0
-      mov [filebufs + r15 + 16], STDOUT_FILENO
+      mov qword [filebufs + r15], rax
+      mov qword [filebufs + r15 + 8], 0
+      mov qword [filebufs + r15 + 16], STDOUT_FILENO
 
       lea rbp, [rax + filebuf_size]
       mov r13, r8
@@ -240,15 +240,15 @@ segment readable executable
 
         mov rbx, rbp
 
-        mov al, [r13]
+        mov al, byte [r13]
         inc r13
 
         @@:
 
-          mov [rbp], al
+          mov byte [rbp], al
           inc rbp
 
-          mov al, [r13]
+          mov al, byte [r13]
           inc r13
 
           cmp al, _char_null
@@ -256,7 +256,8 @@ segment readable executable
 
         mov byte [rbp], _char_newline
 
-        mov rsi, [filebufs + r15]
+        ; TODO: check features if the whole path should be displayed
+        mov rsi, qword [filebufs + r15]
         add rsi, filebuf_size
         lea rcx, [rbp + 1]
         sub rcx, rsi
@@ -287,7 +288,7 @@ segment readable executable
 
       .end:
 
-      mov rdx, [filebufs + r15 + 8]
+      mov rdx, qword [filebufs + r15 + 8]
       filebuf_flush_buffer (filebufs + r15)
 
       mov eax, __NR_exit

@@ -26,7 +26,7 @@ include "constants.inc"
       mov rax, rdx
 
       add ecx, _char_zero
-      mov [rdi], cl
+      mov byte [rdi], cl
       dec rdi
 
       test rax, rax

@@ -7,7 +7,6 @@
 _filebuf_nocheck_buffer_size equ 64
 
 ; TODO: parallelize writes
-; TODO: add operations that dont check for space because the data to write is small enough and add some additional space in the buffer
 
 ; rsi : source
 ; rcx : count
@@ -21,7 +20,7 @@ macro filebuf_write cap {
   mov r9, rcx
   lea rsi, [filebufs + r15]
 
-  mov rdx, [filebufs + r15 + 8]
+  mov rdx, qword [filebufs + r15 + 8]
   lea rax, [rdx + rcx]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
@@ -31,7 +30,7 @@ macro filebuf_write cap {
 
   .back:
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov rsi, r8
   mov rcx, r9
@@ -48,7 +47,7 @@ macro filebuf_write cap {
 macro filebuf_write_nocheck {
 
   mov rax, rcx
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   rep movsb
 
@@ -64,7 +63,7 @@ macro filebuf_write_1_char c, cap {
 
   lea rsi, [filebufs + r15]
 
-  mov rdx, [filebufs + r15 + 8]
+  mov rdx, qword [filebufs + r15 + 8]
   lea rax, [rdx + 1]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
@@ -73,7 +72,7 @@ macro filebuf_write_1_char c, cap {
 
   .back:
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov byte [rdi], c
 
@@ -85,7 +84,7 @@ macro filebuf_write_1_char c, cap {
 ; destroys : rsi, rdi
 macro filebuf_write_1_char_nocheck c {
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov byte [rdi], c
 
@@ -105,7 +104,7 @@ macro filebuf_write_m1_and_2_chars cs, cap {
   lea r9, [rcx - 1]
   lea rsi, [filebufs + r15]
 
-  mov rdx, [filebufs + r15 + 8]
+  mov rdx, qword [filebufs + r15 + 8]
   lea rax, [rdx + rcx + 2]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
@@ -114,7 +113,7 @@ macro filebuf_write_m1_and_2_chars cs, cap {
 
   .back:
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov rsi, r8
   mov rcx, r9
@@ -134,7 +133,7 @@ macro filebuf_write_1_char_and_skip_n c, n, cap {
 
   lea rsi, [filebufs + r15]
 
-  mov rdx, [filebufs + r15 + 8]
+  mov rdx, qword [filebufs + r15 + 8]
   lea rax, [rdx + (1 + n)]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
@@ -143,7 +142,7 @@ macro filebuf_write_1_char_and_skip_n c, n, cap {
 
   .back:
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov byte [rdi], c
 
@@ -155,7 +154,7 @@ macro filebuf_write_1_char_and_skip_n c, n, cap {
 ; destroys : rsi, rdi
 macro filebuf_write_1_char_and_skip_n_nocheck c, n {
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov byte [rdi], c
 
@@ -173,7 +172,7 @@ macro filebuf_write_1_char_and_8 c, cap {
   mov r9, rbx
   lea rsi, [filebufs + r15]
 
-  mov rdx, [filebufs + r15 + 8]
+  mov rdx, qword [filebufs + r15 + 8]
   lea rax, [rdx + 9]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
@@ -182,7 +181,7 @@ macro filebuf_write_1_char_and_8 c, cap {
 
   .back:
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov byte [rdi], c
   mov qword [rdi + 1], r9
@@ -203,7 +202,7 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
   mov r9, rbx
   lea rsi, [filebufs + r15]
 
-  mov rdx, [filebufs + r15 + 8]
+  mov rdx, qword [filebufs + r15 + 8]
   lea rax, [rdx + 34]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
@@ -212,7 +211,7 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
 
   .back:
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov byte [rdi], c1
   mov qword [rdi + 1], r8
@@ -229,7 +228,7 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
 ; destroys : rdi
 macro filebuf_write_1_char_and_16_and_1_char_and_skip_16_nocheck c1, c2 {
 
-  mov rdi, [filebufs + r15]
+  mov rdi, qword [filebufs + r15]
   add rdi, qword [filebufs + r15 + 8]
   mov byte [rdi], c1
   mov qword [rdi + 1], rax
@@ -246,9 +245,10 @@ macro filebuf_flush_buffer buffer {
 
   mov qword [buffer + 8], 0
 
+  ; TODO: write is not guaranteed to write all at once -> loop
   mov eax, __NR_write
-  mov rdi, [buffer + 16]
-  mov rsi, [buffer]
+  mov rdi, qword [buffer + 16]
+  mov rsi, qword [buffer]
   syscall
 
 }

@@ -32,7 +32,6 @@ _char_slash   equ '/'
 _char_zero    equ '0'
 
 ; TODO: add max dir recursion depth option
-; TODO: remove @@ labels
 
 segment readable executable
 
@@ -42,19 +41,19 @@ segment readable executable
     cmp rcx, 2
     jb .args_parsing_end
 
-    mov rax, [rsp + 16]
-    mov [path_root_dir], rax
+    mov rax, qword [rsp + 16]
+    mov qword [path_root_dir], rax
 
     je .args_parsing_end
 
-    mov rbx, [rsp + 24]
-    mov [path_out_db], rbx
+    mov rbx, qword [rsp + 24]
+    mov qword [path_out_db], rbx
 
     cmp rcx, 4
     jb .args_parsing_end
     ja exit_failure_too_many_args
 
-    mov rsi, [rsp + 32]
+    mov rsi, qword [rsp + 32]
     xor ebx, ebx
 
     @@:
@@ -74,7 +73,7 @@ segment readable executable
     cmp rbx, max_threads
     ja exit_failure_too_many_threads
 
-    mov [threads_count], rbx
+    mov qword [threads_count], rbx
 
     .args_parsing_end:
 
@@ -104,31 +103,31 @@ segment readable executable
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
-    mov rsi, [path_out_db]
+    mov rsi, qword [path_out_db]
     mov edx, (O_WRONLY or O_CREAT or O_TRUNC)
     mov r10, (S_IRUSR or S_IWUSR or S_IRGRP or S_IROTH)
     syscall
 
     cmp rax, -4096
-    mov rdi, [path_out_db]
+    mov rdi, qword [path_out_db]
     ja exit_failure_errno_path
     .out_is_stdout:
-    mov [out_db_fd], rax
-    mov [filebufs + 16], rax
+    mov qword [out_db_fd], rax
+    mov qword [filebufs + 16], rax
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
-    mov rsi, [path_root_dir]
+    mov rsi, qword [path_root_dir]
     mov edx, (O_RDONLY or O_NOATIME or O_DIRECTORY)
     syscall
 
     cmp rax, -4096
-    mov rdi, [path_root_dir]
+    mov rdi, qword [path_root_dir]
     ja exit_failure_errno_path
 
     mov r12, rax
 
-    mov r13, [threads_count]
+    mov r13, qword [threads_count]
 
     mov eax, __NR_mmap
     xor edi, edi
@@ -150,10 +149,10 @@ segment readable executable
 
     @@:
 
-      mov [filebufs + rcx], r15
-      mov [filebufs + rcx + 8], 0
-      mov [tfoffsets + rcx], 0
-      mov [tfoffsets + rcx + 8], 0
+      mov qword [filebufs + rcx], r15
+      mov qword [filebufs + rcx + 8], 0
+      mov qword [tfoffsets + rcx], 0
+      mov qword [tfoffsets + rcx + 8], 0
       add r15, filebuf_size
 
       sub rcx, 32
@@ -187,7 +186,7 @@ segment readable executable
 
     filebuf_write_1_char_nocheck _char_null
 
-    mov rdx, [filebufs + 8]
+    mov rdx, qword [filebufs + 8]
     filebuf_flush_buffer filebufs
 
     add rsp, realpath_buf_size
@@ -212,7 +211,7 @@ segment readable executable
       ja exit_failure_errno
 
       lea rsi, [r14 + (thread_stack_size - 8)]
-      mov [rsi], r13
+      mov qword [rsi], r13
 
       mov eax, __NR_clone
       mov edi, (CLONE_FILES or CLONE_FS or CLONE_THREAD or CLONE_SIGHAND or CLONE_VM)
@@ -236,20 +235,20 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov [filebufs + 16], rax
+    mov qword [filebufs + 16], rax
 
     xor r15, r15
 
     filebuf_write_1_char_and_skip_n_nocheck action_work, 16
 
-    mov r13, [threads_count]
+    mov r13, qword [threads_count]
     dec r13
 
     push thread_sleep
 
     .wait_loop:
 
-      mov rdx, [dispatch_count]
+      mov rdx, qword [dispatch_count]
       cmp rdx, r13
       je @f
 
@@ -269,19 +268,19 @@ segment readable executable
 
     thread_last:
 
-    mov r15, [threads_count]
+    mov r15, qword [threads_count]
     shl r15, 5
     sub r15, 32
 
     @@:
 
       mov eax, __NR_write
-      mov rdi, [filebufs + r15 + 16]
-      mov rsi, [filebufs + r15]
-      mov rdx, [filebufs + r15 + 8]
+      mov rdi, qword [filebufs + r15 + 16]
+      mov rsi, qword [filebufs + r15]
+      mov rdx, qword [filebufs + r15 + 8]
       syscall
 
-      mov rsi, [tfoffsets + r15]
+      mov rsi, qword [tfoffsets + r15]
       test rsi, rsi
       jz .skip_mmap
 
@@ -289,12 +288,12 @@ segment readable executable
       xor edi, edi
       mov edx, PROT_READ
       mov r10, (MAP_PRIVATE or MAP_POPULATE)
-      mov r8, [filebufs + r15 + 16]
+      mov r8, qword [filebufs + r15 + 16]
       xor r9, r9
       syscall
 
       .skip_mmap:
-      mov [filebufs + r15 + 24], rax
+      mov qword [filebufs + r15 + 24], rax
 
       sub r15, 32
       jns @b
@@ -311,7 +310,7 @@ segment readable executable
     .rec:
 
       add r13, 17
-      mov r10, [filebufs + r15 + 24]
+      mov r10, qword [filebufs + r15 + 24]
       add r10, r13
 
       movzx eax, byte [r10 - 17]
@@ -464,7 +463,7 @@ segment readable executable
 
   thread_entry:
 
-    mov rax, [rsp]
+    mov rax, qword [rsp]
     mov r15, rax
     shl r15, 5
     mov qword [rsp], thread_sleep
@@ -497,7 +496,7 @@ segment readable executable
         mov rax, rdx
 
         add ecx, _char_zero
-        mov [rdi], cl
+        mov byte [rdi], cl
         dec rdi
 
         test rax, rax
@@ -527,7 +526,7 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov [filebufs + r15 + 16], rax
+    mov qword [filebufs + r15 + 16], rax
 
     jmp thread_sleep_skip
 
@@ -537,17 +536,17 @@ segment readable executable
       mov rdi, r12
       syscall
 
-      mov rax, [tfoffsets + r15 + 8]
+      mov rax, qword [tfoffsets + r15 + 8]
       lea rsi, [rax + 16]
-      mov rcx, [filebufs + r15 + 8]
+      mov rcx, qword [filebufs + r15 + 8]
       cmp rsi, rcx
       ja .not_cached
 
-      mov rdi, [filebufs + r15]
+      mov rdi, qword [filebufs + r15]
       add rdi, rcx
       sub rdi, rsi
 
-      mov [rdi], rax
+      mov qword [rdi], rax
 
       filebuf_write_1_char_and_skip_n_nocheck action_end, 16
 
@@ -558,23 +557,23 @@ segment readable executable
       filebuf_write_1_char_and_skip_n_nocheck action_end, 16
 
       mov eax, __NR_pwrite64
-      mov rdi, [filebufs + r15 + 16]
+      mov rdi, qword [filebufs + r15 + 16]
       lea rsi, [tfoffsets + r15 + 8]
       mov edx, 8
-      mov r10, [tfoffsets + r15]
+      mov r10, qword [tfoffsets + r15]
       inc r10
       syscall
 
       @@:
 
-      mov rax, [tfoffsets + r15 + 8]
+      mov rax, qword [tfoffsets + r15 + 8]
       add rax, 34
-      add [tfoffsets + r15], rax
+      add qword [tfoffsets + r15], rax
       mov qword [tfoffsets + r15 + 8], 0
 
-      mov rax, [dispatch_count]
+      mov rax, qword [dispatch_count]
       inc rax
-      cmp rax, [threads_count]
+      cmp rax, qword [threads_count]
 
       je thread_last
 
@@ -641,7 +640,7 @@ segment readable executable
         mov r8, 0x0101010101010101
         mov r9, 0x8080808080808080
 
-        mov rdx, [rdi]
+        mov rdx, qword [rdi]
         or rax, -1
         shl rax, cl
         not rax
@@ -656,7 +655,7 @@ segment readable executable
           and rax, r9
           jnz .found
           add rdi, 8
-          mov rdx, [rdi]
+          mov rdx, qword [rdi]
           jmp .check
 
         .found:
@@ -674,7 +673,7 @@ segment readable executable
         .unknown_back:
 
         lea rsi, [r13 + 19]
-        add [tfoffsets + r15 + 8], rcx
+        add qword [tfoffsets + r15 + 8], rcx
         filebuf_write filebuf_size
 
         movzx rax, word [r13 + 16]
@@ -688,7 +687,7 @@ segment readable executable
 
         lea rsi, [r13 + 19]
         lea rbx, [rcx + 1]
-        add [tfoffsets + r15 + 8], rbx
+        add qword [tfoffsets + r15 + 8], rbx
         filebuf_write_m1_and_2_chars _char_slash, filebuf_size ; "/\0"
 
         mov eax, __NR_openat
@@ -779,35 +778,35 @@ segment readable executable
 
     .dispatch:
 
-      mov rax, [tfoffsets + r15 + 8]
+      mov rax, qword [tfoffsets + r15 + 8]
       lea rsi, [rax + 16]
-      mov rcx, [filebufs + r15 + 8]
+      mov rcx, qword [filebufs + r15 + 8]
       cmp rsi, rcx
       ja .not_cached
 
-      mov rdi, [filebufs + r15]
+      mov rdi, qword [filebufs + r15]
       add rdi, rcx
       sub rdi, rsi
 
-      mov [rdi], rax
+      mov qword [rdi], rax
 
       jmp @f
 
       .not_cached:
 
       mov eax, __NR_pwrite64
-      mov rdi, [filebufs + r15 + 16]
+      mov rdi, qword [filebufs + r15 + 16]
       lea rsi, [tfoffsets + r15 + 8]
       mov edx, 8
-      mov r10, [tfoffsets + r15]
+      mov r10, qword [tfoffsets + r15]
       inc r10
       syscall
 
       @@:
 
-      mov rax, [tfoffsets + r15 + 8]
+      mov rax, qword [tfoffsets + r15 + 8]
       add rax, 34
-      add [tfoffsets + r15], rax
+      add qword [tfoffsets + r15], rax
       mov qword [tfoffsets + r15 + 8], 0
 
       mov rax, r8
