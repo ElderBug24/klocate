@@ -2,7 +2,7 @@ format ELF64 executable 3
 entry start
 
 _debug_tmpfile_name equ 1
-_errno_compact equ 1
+; _errno_compact equ 1
 include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
@@ -98,7 +98,7 @@ segment readable executable
 
     mov eax, STDOUT_FILENO
     mov rsi, qword [path_out_db]
-    cmp word [rsi], _char_hyphen
+    cmp word [rsi], _char_hyphen ; "-\0"
     je .out_is_stdout
 
     mov eax, __NR_openat

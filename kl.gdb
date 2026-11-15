@@ -5,5 +5,7 @@ set print array on
 set print repeats 0
 add-symbol-file build/kl.elf
 
+break start
+
 run
 

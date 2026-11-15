@@ -1,7 +1,7 @@
 format ELF64 executable 3
 entry start
 
-_errno_compact equ 1
+; _errno_compact equ 1
 include "constants.inc"
 include "filebuf.inc"
 
@@ -23,6 +23,7 @@ _feature_flags_mask equ (_feature_flag_file or _feature_flag_dir or _feature_fla
 
 _char_null    equ 0
 _char_newline equ 10
+_char_hyphen  equ '-'
 _char_dot     equ '.'
 _char_slash   equ '/'
 _char_zero    equ '0'
@@ -36,6 +37,18 @@ segment readable executable
     mov r8, qword [rsp]
 
     mov r12, (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
+
+    mov eax, __NR_ioctl
+    mov edi, STDIN_FILENO
+    mov esi, TCGETS
+    mov edx, scratch
+    syscall
+
+    mov rbx, default_path_in_db
+    mov rcx, path_stdin
+    cmp rax, -ENOTTY
+    cmove rbx, rcx
+    mov qword [path_in_db], rbx
 
     xor eax, eax
     cmp r8, 2
@@ -67,6 +80,11 @@ segment readable executable
     .args_parsing_end:
 
     mov qword [features], r12
+
+    mov eax, STDIN_FILENO
+    mov rsi, qword [path_in_db]
+    cmp word [rsi], _char_hyphen ; "-\0"
+    je .in_is_stdin
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
@@ -114,6 +132,8 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
+    .in_is_stdin_back:
+
     mov r8, rax
 
     test r15, r15
@@ -124,6 +144,16 @@ segment readable executable
     mov eax, __NR_exit
     mov edi, 1
     syscall
+
+    .in_is_stdin:
+
+      mov rax, -ENOSYS
+      jmp exit_failure_errno
+
+      ; TODO: read stdin into buffer
+      ; put size in r13
+      ; put ptr in rax
+      jmp .in_is_stdin_back
 
     exit_failure_errno_path:
 
@@ -308,6 +338,7 @@ segment readable
   msg_err_too_many_args_len = $ - msg_err_too_many_args
 
   default_path_in_db db "/var/cache/klocate/db", _char_null
+  path_stdin db "-", 0
 
 segment readable writeable
 
@@ -316,7 +347,7 @@ segment readable writeable
   features    rq 1
   root_offset rq 1
 
-  path_in_db dq default_path_in_db
+  path_in_db rq 1
 
   filebufs rq (max_threads * 4) ; 32 bytes padded
 
