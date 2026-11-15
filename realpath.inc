@@ -1,6 +1,4 @@
 
-include "constants.inc"
-
   ; rax : fd
   ; rdi : dest
   ; rdx : size of dest
@@ -25,7 +23,7 @@ include "constants.inc"
       sub rcx, rax
       mov rax, rdx
 
-      add ecx, _char_zero
+      add ecx, _char_digit_zero
       mov byte [rdi], cl
       dec rdi
 

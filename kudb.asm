@@ -24,13 +24,6 @@ action_work     equ 0
 action_dispatch equ 1
 action_end      equ 2
 
-_char_null    equ 0
-_char_newline equ 10
-_char_hyphen  equ '-'
-_char_dot     equ '.'
-_char_slash   equ '/'
-_char_zero    equ '0'
-
 ; TODO: add max dir recursion depth option
 
 segment readable executable
@@ -65,7 +58,7 @@ segment readable executable
 
       lea rcx, [rbx + 4 * rbx]
       lea rbx, [rax + 2 * rcx]
-      sub rbx, _char_zero
+      sub rbx, _char_digit_zero
       jmp .parse_loop
 
     .parse_loop_end:
@@ -98,7 +91,7 @@ segment readable executable
 
     mov eax, STDOUT_FILENO
     mov rsi, qword [path_out_db]
-    cmp word [rsi], _char_hyphen ; "-\0"
+    cmp word [rsi], _char_hyphen_minus ; "-\0"
     je .out_is_stdout
 
     mov eax, __NR_openat
@@ -177,14 +170,14 @@ segment readable executable
     mov rcx, rax
     filebuf_write_nocheck
 
-    cmp byte [rsp + r14 - 1], _char_slash
+    cmp byte [rsp + r14 - 1], _char_solidus
     je .skip_slash
 
-    filebuf_write_1_char_nocheck _char_slash
+    filebuf_write_1_char_nocheck _char_solidus
 
     .skip_slash:
 
-    filebuf_write_1_char_nocheck _char_null
+    filebuf_write_1_char_nocheck _char_nul
 
     mov rdx, qword [filebufs + _filebuf_len_offset]
     filebuf_flush_buffer filebufs
@@ -359,7 +352,7 @@ segment readable executable
 
       mov eax, __NR_write
       mov rdi, r12
-      mov rsi, char_null
+      mov rsi, char_nul
       mov edx, 2
       syscall
 
@@ -399,7 +392,7 @@ segment readable executable
       syscall
 
       mov eax, __NR_write
-      mov rsi, char_newline
+      mov rsi, char_lf
       mov edx, 1
       syscall
 
@@ -418,7 +411,7 @@ segment readable executable
       syscall
 
       mov eax, __NR_write
-      mov rsi, char_newline
+      mov rsi, char_lf
       mov edx, 1
       syscall
 
@@ -495,7 +488,7 @@ segment readable executable
         sub rcx, rax
         mov rax, rdx
 
-        add ecx, _char_zero
+        add ecx, _char_digit_zero
         mov byte [rdi], cl
         dec rdi
 
@@ -616,14 +609,14 @@ segment readable executable
 
         ; TODO: dynamic filter list (jit compiled ?)
 
-        cmp byte [r13 + 19], _char_dot
+        cmp byte [r13 + 19], _char_full_stop
         sete bl
         mov edx, ebx
-        cmp byte [r13 + 20], _char_null
+        cmp byte [r13 + 20], _char_nul
         sete bh
         and bl, bh
 
-        cmp word [r13 + 20], _char_dot ; ".\0"
+        cmp word [r13 + 20], _char_full_stop ; ".\0"
         sete bh
         and dl, bh
 
@@ -688,7 +681,7 @@ segment readable executable
         lea rsi, [r13 + 19]
         lea rbx, [rcx + 1]
         add qword [tfoffsets + r15 + 8], rbx
-        filebuf_write_m1_and_2_chars _char_slash, filebuf_size ; "/\0"
+        filebuf_write_m1_and_2_chars _char_solidus, filebuf_size ; "/\0"
 
         mov eax, __NR_openat
         mov rdi, r12
@@ -735,7 +728,7 @@ segment readable executable
     .loop_end:
 
       inc qword [tfoffsets + r15 + 8]
-      filebuf_write_1_char _char_slash, filebuf_size
+      filebuf_write_1_char _char_solidus, filebuf_size
 
       add rsp, (dents_buf_size + 1 + 7)
 
@@ -770,7 +763,7 @@ segment readable executable
     .on_openat_err:
 
       inc qword [tfoffsets + r15 + 8]
-      filebuf_write_1_char_nocheck _char_slash
+      filebuf_write_1_char_nocheck _char_solidus
 
       mov rsi, r13
 
@@ -819,13 +812,13 @@ segment readable
   timeout dq 0
           dq 0500000
 
-  char_newline db _char_newline
+  char_lf db _char_lf
 
   msg_err               db "error"
   msg_sep               db      ": "
   msg_err_sep_len = $ - msg_err
   msg_sep_len = $ - msg_sep
-                        db        "Too many arguments", _char_newline
+                        db        "Too many arguments", _char_lf
   label msg_err_too_many_args byte at msg_err
   msg_err_too_many_args_len = $ - msg_err_too_many_args
 
@@ -853,16 +846,16 @@ segment readable
                                                               db ")", 10
   msg_err_too_many_threads_len = $ - msg_err_too_many_threads
 
-  default_path_root_dir   db "/", _char_null
-  default_path_out_db_dir db "/var/cache/klocate", _char_null
-  default_path_out_db     db "/var/cache/klocate/db", _char_null
+  default_path_root_dir   db "/", _char_nul
+  default_path_out_db_dir db "/var/cache/klocate", _char_nul
+  default_path_out_db     db "/var/cache/klocate/db", _char_nul
 
   tmpfile_debug_name db "tmpfile"
   tmpfile_debug_name_len = $ - tmpfile_debug_name
   if defined _debug_tmpfile_name
-    db _char_zero
+    db _char_digit_zero
   end if
-  char_null db 2 dup _char_null
+  char_nul db 2 dup _char_nul
 
 segment readable writeable
 

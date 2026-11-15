@@ -21,13 +21,6 @@ _feature_flag_dir  equ (1 shl _feature_bit_dir )
 _feature_flag_path equ (1 shl _feature_bit_path)
 _feature_flags_mask equ (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
 
-_char_null    equ 0
-_char_newline equ 10
-_char_hyphen  equ '-'
-_char_dot     equ '.'
-_char_slash   equ '/'
-_char_zero    equ '0'
-
 segment readable executable
 
 ; TODO: option to filter files that do not exist anymore
@@ -83,7 +76,7 @@ segment readable executable
 
     mov eax, STDIN_FILENO
     mov rsi, qword [path_in_db]
-    cmp word [rsi], _char_hyphen ; "-\0"
+    cmp word [rsi], _char_hyphen_minus ; "-\0"
     je .in_is_stdin
 
     mov eax, __NR_openat
@@ -187,7 +180,7 @@ segment readable executable
       syscall
 
       mov eax, __NR_write
-      mov rsi, char_newline
+      mov rsi, char_lf
       mov edx, 1
       syscall
 
@@ -206,7 +199,7 @@ segment readable executable
       syscall
 
       mov eax, __NR_write
-      mov rsi, char_newline
+      mov rsi, char_lf
       mov edx, 1
       syscall
 
@@ -260,10 +253,10 @@ segment readable executable
 
       .rec:
 
-        cmp byte [r13], _char_null
+        cmp byte [r13], _char_nul
         je .end
 
-        cmp byte [r13], _char_slash
+        cmp byte [r13], _char_solidus
         je .ret
 
         .skip_ahead:
@@ -281,10 +274,10 @@ segment readable executable
           mov al, byte [r13]
           inc r13
 
-          cmp al, _char_null
+          cmp al, _char_nul
           jne .copy_loop
 
-        mov byte [rbp], _char_newline
+        mov byte [rbp], _char_lf
 
         ; TODO: check features if the whole path should be displayed
         mov rsi, qword [filebufs + r15 + _filebuf_ptr_offset]
@@ -293,7 +286,7 @@ segment readable executable
         sub rcx, rsi
         filebuf_write filebuf_size
 
-        cmp byte [rbp - 1], _char_slash
+        cmp byte [rbp - 1], _char_solidus
         cmovne rbp, rbx
         jne .rec
 
@@ -327,17 +320,16 @@ segment readable executable
 
 segment readable
 
-  char_slash_null:
-  char_slash   db _char_slash
-  char_newline db _char_newline
+  char_solidus db _char_solidus
+  char_lf      db _char_lf
 
   msg_err_too_many_args db "error"
   msg_sep               db      ": "
   msg_sep_len = $ - msg_sep
-                        db        "Too many arguments", _char_newline
+                        db        "Too many arguments", _char_lf
   msg_err_too_many_args_len = $ - msg_err_too_many_args
 
-  default_path_in_db db "/var/cache/klocate/db", _char_null
+  default_path_in_db db "/var/cache/klocate/db", _char_nul
   path_stdin db "-", 0
 
 segment readable writeable

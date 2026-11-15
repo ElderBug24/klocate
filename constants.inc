@@ -1,3 +1,5 @@
+if ~ definite __CONSTANTS_H
+__CONSTANTS_H equ 1
 
 __NR_read equ 0
 __NR_write equ 1
@@ -694,5 +696,8 @@ TIOCPKT_IOCTL equ 64
 
 TIOCSER_TEMT equ 0x01
 
+include "chars.inc"
 include "errno.inc"
+
+end if
 
