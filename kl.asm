@@ -243,7 +243,7 @@ segment readable executable
         mov al, byte [r13]
         inc r13
 
-        @@:
+        .copy_loop:
 
           mov byte [rbp], al
           inc rbp
@@ -252,7 +252,7 @@ segment readable executable
           inc r13
 
           cmp al, _char_null
-          jne @b
+          jne .copy_loop
 
         mov byte [rbp], _char_newline
 

@@ -56,19 +56,19 @@ segment readable executable
     mov rsi, qword [rsp + 32]
     xor ebx, ebx
 
-    @@:
+    .parse_loop:
 
       movzx eax, byte [rsi]
       inc rsi
       test al, al
-      jz @f
+      jz .parse_loop_end
 
       lea rcx, [rbx + 4 * rbx]
       lea rbx, [rax + 2 * rcx]
       sub rbx, _char_zero
-      jmp @b
+      jmp .parse_loop
 
-    @@:
+    .parse_loop_end:
 
     cmp rbx, max_threads
     ja exit_failure_too_many_threads
@@ -147,7 +147,7 @@ segment readable executable
     lea rcx, [r13 - 1]
     shl rcx, 5
 
-    @@:
+    .zero_loop:
 
       mov qword [filebufs + rcx], r15
       mov qword [filebufs + rcx + 8], 0
@@ -156,7 +156,7 @@ segment readable executable
       add r15, filebuf_size
 
       sub rcx, 32
-      jns @b
+      jns .zero_loop
 
     xor r15, r15
 
@@ -178,11 +178,11 @@ segment readable executable
     filebuf_write_nocheck
 
     cmp byte [rsp + r14 - 1], _char_slash
-    je @f
+    je .skip_slash
 
     filebuf_write_1_char_nocheck _char_slash
 
-    @@:
+    .skip_slash:
 
     filebuf_write_1_char_nocheck _char_null
 
@@ -250,7 +250,7 @@ segment readable executable
 
       mov rdx, qword [dispatch_count]
       cmp rdx, r13
-      je @f
+      je .wait_loop_end
 
       mov eax, __NR_futex
       mov rdi, dispatch_count
@@ -262,7 +262,7 @@ segment readable executable
 
       jmp .wait_loop
 
-    @@:
+    .wait_loop_end:
 
     jmp walker
 
@@ -272,7 +272,7 @@ segment readable executable
     shl r15, 5
     sub r15, 32
 
-    @@:
+    .flush_loop:
 
       mov eax, __NR_write
       mov rdi, qword [filebufs + r15 + 16]
@@ -296,14 +296,14 @@ segment readable executable
       mov qword [filebufs + r15 + 24], rax
 
       sub r15, 32
-      jns @b
+      jns .flush_loop
 
     xor r13, r13
     xor r15, r15
 
     push .exit
 
-    ; TODO: use register instead of out_db_fd
+    mov r12, qword [out_db_fd]
     ; TODO: buffer output
 
     ; r15 : tmpfile index * 32
@@ -320,10 +320,10 @@ segment readable executable
       je .dispatch
       ja .ret
 
-      @@:
+      .write_loop:
 
         mov eax, __NR_write
-        mov rdi, [out_db_fd]
+        mov rdi, r12
         mov rsi, r10
         mov rdx, rbx
         syscall
@@ -331,7 +331,7 @@ segment readable executable
         add r13, rax
         sub rbx, rax
 
-        jnz @b
+        jnz .write_loop
 
       jmp .rec
 
@@ -358,7 +358,7 @@ segment readable executable
     .exit:
 
       mov eax, __NR_write
-      mov rdi, [out_db_fd]
+      mov rdi, r12
       mov rsi, char_null
       mov edx, 2
       syscall
@@ -550,7 +550,7 @@ segment readable executable
 
       filebuf_write_1_char_and_skip_n_nocheck action_end, 16
 
-      jmp @f
+      jmp .skip_ahead
 
       .not_cached:
 
@@ -564,7 +564,7 @@ segment readable executable
       inc r10
       syscall
 
-      @@:
+      .skip_ahead:
 
       mov rax, qword [tfoffsets + r15 + 8]
       add rax, 34
@@ -790,7 +790,7 @@ segment readable executable
 
       mov qword [rdi], rax
 
-      jmp @f
+      jmp .skip_write
 
       .not_cached:
 
@@ -802,7 +802,7 @@ segment readable executable
       inc r10
       syscall
 
-      @@:
+      .skip_write:
 
       mov rax, qword [tfoffsets + r15 + 8]
       add rax, 34
