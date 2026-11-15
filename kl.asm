@@ -219,9 +219,9 @@ segment readable executable
       cmp rax, -4096
       ja exit_failure_errno
 
-      mov qword [filebufs + r15], rax
-      mov qword [filebufs + r15 + 8], 0
-      mov qword [filebufs + r15 + 16], STDOUT_FILENO
+      mov qword [filebufs + r15 + _filebuf_ptr_offset], rax
+      mov qword [filebufs + r15 + _filebuf_len_offset], 0
+      mov qword [filebufs + r15 + _filebuf_fd_offset], STDOUT_FILENO
 
       lea rbp, [rax + filebuf_size]
       mov r13, r8
@@ -257,7 +257,7 @@ segment readable executable
         mov byte [rbp], _char_newline
 
         ; TODO: check features if the whole path should be displayed
-        mov rsi, qword [filebufs + r15]
+        mov rsi, qword [filebufs + r15 + _filebuf_ptr_offset]
         add rsi, filebuf_size
         lea rcx, [rbp + 1]
         sub rcx, rsi
@@ -288,7 +288,7 @@ segment readable executable
 
       .end:
 
-      mov rdx, qword [filebufs + r15 + 8]
+      mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
       filebuf_flush_buffer (filebufs + r15)
 
       mov eax, __NR_exit

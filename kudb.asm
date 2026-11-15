@@ -113,7 +113,7 @@ segment readable executable
     ja exit_failure_errno_path
     .out_is_stdout:
     mov qword [out_db_fd], rax
-    mov qword [filebufs + 16], rax
+    mov qword [filebufs + _filebuf_fd_offset], rax
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
@@ -149,8 +149,8 @@ segment readable executable
 
     .zero_loop:
 
-      mov qword [filebufs + rcx], r15
-      mov qword [filebufs + rcx + 8], 0
+      mov qword [filebufs + rcx + _filebuf_ptr_offset], r15
+      mov qword [filebufs + rcx + _filebuf_len_offset], 0
       mov qword [tfoffsets + rcx], 0
       mov qword [tfoffsets + rcx + 8], 0
       add r15, filebuf_size
@@ -186,7 +186,7 @@ segment readable executable
 
     filebuf_write_1_char_nocheck _char_null
 
-    mov rdx, qword [filebufs + 8]
+    mov rdx, qword [filebufs + _filebuf_len_offset]
     filebuf_flush_buffer filebufs
 
     add rsp, realpath_buf_size
@@ -235,7 +235,7 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov qword [filebufs + 16], rax
+    mov qword [filebufs + _filebuf_fd_offset], rax
 
     xor r15, r15
 
@@ -275,9 +275,9 @@ segment readable executable
     .flush_loop:
 
       mov eax, __NR_write
-      mov rdi, qword [filebufs + r15 + 16]
-      mov rsi, qword [filebufs + r15]
-      mov rdx, qword [filebufs + r15 + 8]
+      mov rdi, qword [filebufs + r15 + _filebuf_fd_offset]
+      mov rsi, qword [filebufs + r15 + _filebuf_ptr_offset]
+      mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
       syscall
 
       mov rsi, qword [tfoffsets + r15]
@@ -288,7 +288,7 @@ segment readable executable
       xor edi, edi
       mov edx, PROT_READ
       mov r10, (MAP_PRIVATE or MAP_POPULATE)
-      mov r8, qword [filebufs + r15 + 16]
+      mov r8, qword [filebufs + r15 + _filebuf_fd_offset]
       xor r9, r9
       syscall
 
@@ -526,7 +526,7 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov qword [filebufs + r15 + 16], rax
+    mov qword [filebufs + r15 + _filebuf_fd_offset], rax
 
     jmp thread_sleep_skip
 
@@ -538,11 +538,11 @@ segment readable executable
 
       mov rax, qword [tfoffsets + r15 + 8]
       lea rsi, [rax + 16]
-      mov rcx, qword [filebufs + r15 + 8]
+      mov rcx, qword [filebufs + r15 + _filebuf_len_offset]
       cmp rsi, rcx
       ja .not_cached
 
-      mov rdi, qword [filebufs + r15]
+      mov rdi, qword [filebufs + r15 + _filebuf_ptr_offset]
       add rdi, rcx
       sub rdi, rsi
 
@@ -557,7 +557,7 @@ segment readable executable
       filebuf_write_1_char_and_skip_n_nocheck action_end, 16
 
       mov eax, __NR_pwrite64
-      mov rdi, qword [filebufs + r15 + 16]
+      mov rdi, qword [filebufs + r15 + _filebuf_fd_offset]
       lea rsi, [tfoffsets + r15 + 8]
       mov edx, 8
       mov r10, qword [tfoffsets + r15]
@@ -780,11 +780,11 @@ segment readable executable
 
       mov rax, qword [tfoffsets + r15 + 8]
       lea rsi, [rax + 16]
-      mov rcx, qword [filebufs + r15 + 8]
+      mov rcx, qword [filebufs + r15 + _filebuf_len_offset]
       cmp rsi, rcx
       ja .not_cached
 
-      mov rdi, qword [filebufs + r15]
+      mov rdi, qword [filebufs + r15 + _filebuf_ptr_offset]
       add rdi, rcx
       sub rdi, rsi
 
@@ -795,7 +795,7 @@ segment readable executable
       .not_cached:
 
       mov eax, __NR_pwrite64
-      mov rdi, qword [filebufs + r15 + 16]
+      mov rdi, qword [filebufs + r15 + _filebuf_fd_offset]
       lea rsi, [tfoffsets + r15 + 8]
       mov edx, 8
       mov r10, qword [tfoffsets + r15]
