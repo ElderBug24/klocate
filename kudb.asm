@@ -2,7 +2,7 @@ format ELF64 executable 3
 entry start
 
 _debug_tmpfile_name equ 1
-; _errno_compact equ 1
+_strip_errno equ 0
 include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
@@ -362,58 +362,53 @@ segment readable executable
 
     exit_failure_errno_path:
 
-      mov r12, rax
-      mov r13, rdi
+      if ~ defined _strip_errno | _strip_errno < 2
 
-      xor eax, eax
-      or rcx, -1
-      cld
-      repne scasb
-      not rcx
-      dec rcx
+        mov r12, rax
+        mov r13, rdi
 
-      mov eax, __NR_write
-      mov edi, STDERR_FILENO
-      mov rsi, r13
-      mov rdx, rcx
-      syscall
+        xor eax, eax
+        or rcx, -1
+        cld
+        repne scasb
+        not rcx
+        dec rcx
 
-      mov eax, __NR_write
-      mov rsi, msg_sep
-      mov edx, msg_sep_len
-      syscall
+        mov eax, __NR_write
+        mov edi, STDERR_FILENO
+        mov rsi, r13
+        mov rdx, rcx
+        syscall
 
-      mov rax, r12
-      not rax
+        mov eax, __NR_write
+        mov rsi, msg_sep
+        mov edx, msg_sep_len
+        syscall
 
-      mov esi, dword [_errno_table_msg + 4 * rax + 4]
-      movzx edx, byte [_errno_table_len + rax + 1]
-      mov eax, __NR_write
-      syscall
+        mov rax, r12
 
-      mov eax, __NR_write
-      mov rsi, char_lf
-      mov edx, 1
-      syscall
+      end if
 
-      mov eax, __NR_exit_group
-      dec edi ; 1 = STDERR_FILENO - 1
-      syscall
+      ; fallthrough
 
     exit_failure_errno:
 
-      not rax
+      if ~ defined _strip_errno | _strip_errno < 2
 
-      mov esi, dword [_errno_table_msg + 4 * rax + 4]
-      movzx edx, byte [_errno_table_len + rax + 1]
-      mov eax, __NR_write
-      mov edi, STDERR_FILENO
-      syscall
+        not rax
 
-      mov eax, __NR_write
-      mov rsi, char_lf
-      mov edx, 1
-      syscall
+        mov esi, dword [_errno_table_msg + 4 * rax + 4]
+        movzx edx, byte [_errno_table_len + rax + 1]
+        mov eax, __NR_write
+        mov edi, STDERR_FILENO
+        syscall
+
+        mov eax, __NR_write
+        mov rsi, char_lf
+        mov edx, 1
+        syscall
+
+      end if
 
       mov eax, __NR_exit_group
       dec edi ; 1 = STDERR_FILENO - 1
