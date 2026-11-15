@@ -11,7 +11,6 @@ _filebuf_fd_offset  equ 16
 _filebuf_nocheck_buffer_size equ 64
 
 ; TODO: parallelize writes
-; TODO: accept filebufs ptr as arg
 
 ; rsi : source
 ; rcx : count
@@ -23,7 +22,6 @@ macro filebuf_write cap {
 
   mov r8, rsi
   mov r9, rcx
-  lea rsi, [filebufs + r15 + _filebuf_ptr_offset]
 
   mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
   lea rax, [rdx + rcx]
@@ -66,8 +64,6 @@ macro filebuf_write_1_char c, cap {
 
   local .back
 
-  lea rsi, [filebufs + r15 + _filebuf_ptr_offset]
-
   mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
   lea rax, [rdx + 1]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
@@ -107,7 +103,6 @@ macro filebuf_write_m1_and_2_chars cs, cap {
 
   mov r8, rsi
   lea r9, [rcx - 1]
-  lea rsi, [filebufs + r15 + _filebuf_ptr_offset]
 
   mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
   lea rax, [rdx + rcx + 2]
@@ -135,8 +130,6 @@ macro filebuf_write_m1_and_2_chars cs, cap {
 macro filebuf_write_1_char_and_skip_n c, n, cap {
 
   local .back
-
-  lea rsi, [filebufs + r15 + _filebuf_ptr_offset]
 
   mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
   lea rax, [rdx + (1 + n)]
@@ -175,7 +168,6 @@ macro filebuf_write_1_char_and_8 c, cap {
   local .back
 
   mov r9, rbx
-  lea rsi, [filebufs + r15 + _filebuf_ptr_offset]
 
   mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
   lea rax, [rdx + 9]
@@ -205,7 +197,6 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
 
   mov r8, rax
   mov r9, rbx
-  lea rsi, [filebufs + r15 + _filebuf_ptr_offset]
 
   mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
   lea rax, [rdx + 34]
@@ -246,7 +237,7 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16_nocheck c1, c2 {
 
 ; rdx : count
 ; destroys : rax, rcx, rdx, rsi, rdi, r11
-macro filebuf_flush_buffer buffer {
+macro filebuf_flush buffer {
 
   local .loop
 
@@ -264,25 +255,16 @@ macro filebuf_flush_buffer buffer {
 
 }
 
-; rsi : buffer struct
-; rdx : count
-; destroys : rax, rcx, rdx, rsi, rdi, r11
-macro filebuf_flush {
-
-  filebuf_flush_buffer rsi
-
-}
-
 segment readable executable
 
   if used filebuf_flush_label
 
-    ; rsi : buffer struct
     ; rdx : count
+    ; r15 : id * 32
     ; destroys : rax, rcx, rdx, rsi, rdi, r11
     filebuf_flush_label:
 
-      filebuf_flush
+      filebuf_flush (filebufs + r15 + _filebuf_ptr_offset)
 
       jmp r10
 

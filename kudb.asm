@@ -180,7 +180,7 @@ segment readable executable
     filebuf_write_1_char_nocheck _char_nul
 
     mov rdx, qword [filebufs + _filebuf_len_offset]
-    filebuf_flush_buffer filebufs
+    filebuf_flush filebufs
 
     add rsp, realpath_buf_size
 
@@ -725,7 +725,7 @@ segment readable executable
       inc qword [tfoffsets + r15 + 8]
       filebuf_write_1_char _char_solidus, filebuf_size
 
-      add rsp, (dents_buf_size + 1 + 7)
+      add rsp, (dents_buf_size + 8)
 
       ret
 

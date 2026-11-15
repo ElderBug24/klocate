@@ -307,7 +307,7 @@ segment readable executable
       .end:
 
       mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
-      filebuf_flush_buffer (filebufs + r15)
+      filebuf_flush (filebufs + r15)
 
       mov eax, __NR_exit
       xor edi, edi
