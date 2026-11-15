@@ -3,8 +3,11 @@ layout asm
 layout regs
 set print array on
 set print repeats 0
+add-symbol-file build/kudb.elf
 
-# run / /var/cache/klocate/db 1
-# run test_fs /var/cache/klocate/db 4
-run
+break start
+
+# run / /var/cache/klocate/db 4
+run test_fs /var/cache/klocate/db 4
+# run
 

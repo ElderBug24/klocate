@@ -3,6 +3,7 @@ layout asm
 layout regs
 set print array on
 set print repeats 0
+add-symbol-file build/kl.elf
 
 run
 
