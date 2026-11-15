@@ -56,7 +56,7 @@ if used realpath_proc_self_fd_path
 
     realpath_proc_self_fd_path db "/proc/self/fd/"
     realpath_proc_self_fd_path_len = $ - realpath_proc_self_fd_path
-    realpath_fmt_buf_size = 16
+    realpath_fmt_buf_size equ 16
     realpath_fmt_buf rb realpath_fmt_buf_size
 
 end if

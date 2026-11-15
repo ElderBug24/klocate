@@ -1,14 +1,31 @@
 format ELF64 executable 3
 entry start
 
-; _errno_compact = 1
+_errno_compact equ 1
 include "constants.inc"
 include "filebuf.inc"
 
-_pagesize             = 4096
-filebuf_size          = (8 * _pagesize)
-max_threads           = 64
-list_mode_buffer_size = (8 * _pagesize)
+_pagesize             equ 4096
+filebuf_size          equ (8 * _pagesize)
+max_threads           equ 64
+list_mode_buffer_size equ (8 * _pagesize)
+
+_feature_bit_file equ 0
+_feature_bit_dir  equ 1
+_feature_bit_path equ 2
+
+_entry_bit_dir    equ 31
+
+_feature_flag_file equ (1 shl _feature_bit_file)
+_feature_flag_dir  equ (1 shl _feature_bit_dir )
+_feature_flag_path equ (1 shl _feature_bit_path)
+_feature_flags_mask equ (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
+
+_char_null    equ 0
+_char_newline equ 10
+_char_dot     equ '.'
+_char_slash   equ '/'
+_char_zero    equ '0'
 
 segment readable executable
 
@@ -17,6 +34,8 @@ segment readable executable
   start:
 
     mov r8, [rsp]
+
+    mov r12, (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
 
     xor eax, eax
     cmp r8, 2
@@ -46,6 +65,8 @@ segment readable executable
     ; TODO: parse threads count
 
     .args_parsing_end:
+
+    mov [features], r12
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
@@ -275,12 +296,6 @@ segment readable executable
 
 segment readable
 
-  _char_null    = 0
-  _char_newline = 10
-  _char_dot     = '.'
-  _char_slash   = '/'
-  _char_zero    = '0'
-
   char_slash_null:
   char_slash   db _char_slash
   char_newline db _char_newline
@@ -297,6 +312,7 @@ segment readable writeable
 
   querry      rq 1
   querry_size rq 1
+  features    rq 1
   root_offset rq 1
 
   path_in_db dq default_path_in_db

@@ -1,28 +1,38 @@
 format ELF64 executable 3
 entry start
 
-_debug_tmpfile_name = 1
-; _errno_compact = 1
+_debug_tmpfile_name equ 1
+_errno_compact equ 1
 include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
 include "dispatch.inc"
 
-_pagesize             = 4096
-realpath_buf_size     = (4 * _pagesize)
-dents_buf_size        = (2 * _pagesize)
-filebuf_size          = (8 * _pagesize)
-pipe_buf              = _pagesize
-max_threads           = 64 ; TODO: get rid of all limitaions imposed at assembly time
-default_threads_count = 4
-thread_stack_size_exp = 24
-thread_stack_size     = (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
-scratch_size_exp      = 8
-scratch_size          = (1 shl scratch_size_exp)
+_pagesize             equ 4096
+realpath_buf_size     equ (4 * _pagesize)
+dents_buf_size        equ (2 * _pagesize)
+filebuf_size          equ (8 * _pagesize)
+pipe_buf              equ _pagesize
+max_threads           equ 64 ; TODO: get rid of all limitaions imposed at assembly time
+default_threads_count equ 4
+thread_stack_size_exp equ 24
+thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
+scratch_size_exp      equ 8
+scratch_size          equ (1 shl scratch_size_exp)
 
-action_work     = 0
-action_dispatch = 1
-action_end      = 2
+action_work     equ 0
+action_dispatch equ 1
+action_end      equ 2
+
+_char_null    equ 0
+_char_newline equ 10
+_char_hyphen  equ '-'
+_char_dot     equ '.'
+_char_slash   equ '/'
+_char_zero    equ '0'
+
+; TODO: add max dir recursion depth option
+; TODO: remove @@ labels
 
 segment readable executable
 
@@ -809,13 +819,6 @@ segment readable
 
   timeout dq 0
           dq 0500000
-
-  _char_null    = 0
-  _char_newline = 10
-  _char_hyphen  = '-'
-  _char_dot     = '.'
-  _char_slash   = '/'
-  _char_zero    = '0'
 
   char_newline db _char_newline
 

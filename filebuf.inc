@@ -4,7 +4,7 @@
 ;   len rq 1
 ;   fd  rq 1
 
-_filebuf_nocheck_buffer_size = 64
+_filebuf_nocheck_buffer_size equ 64
 
 ; TODO: parallelize writes
 ; TODO: add operations that dont check for space because the data to write is small enough and add some additional space in the buffer
