@@ -286,6 +286,7 @@ segment readable executable
       xor r15, r15
 
       mov rbx, r8
+      mov r14, qword [features]
 
       mov eax, __NR_mmap
       xor edi, edi
@@ -338,9 +339,10 @@ segment readable executable
 
         mov byte [rbp], _char_lf
 
-        ; TODO: check features if the whole path should be displayed
         mov rsi, qword [filebufs + r15 + _filebuf_ptr_offset]
         add rsi, filebuf_size
+        bt r14, _feature_bit_path
+        cmovnc rsi, rbx
         lea rcx, [rbp + 1]
         sub rcx, rsi
         filebuf_write filebuf_size
