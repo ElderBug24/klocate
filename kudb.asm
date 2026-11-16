@@ -124,9 +124,11 @@ segment readable executable
 
     mov eax, __NR_mmap
     xor edi, edi
-    imul esi, r13d, (thread_stack_size + filebuf_size)
+    imul rsi, r13, (thread_stack_size + filebuf_size)
     mov edx, (PROT_READ or PROT_WRITE)
     mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
+    mov r8, -1
+    xor r9, r9
     syscall
 
     cmp rax, -4096
@@ -194,18 +196,12 @@ segment readable executable
       mov r14, rbx
       add rbx, thread_stack_size
 
-      mov rdi, r14
-      mov eax, __NR_mprotect
-      mov esi, _pagesize
-      xor edx, edx
-      syscall
-
-      cmp rax, -4096
-      ja exit_failure_errno
-
       lea rsi, [r14 + (thread_stack_size - 8)]
       mov qword [rsi], r13
 
+      ; TODO: remove CLONE_FILES
+      ; and request that each thread map their file and share ptr
+      ; instead of mapping in the last thread
       mov eax, __NR_clone
       mov edi, (CLONE_FILES or CLONE_FS or CLONE_THREAD or CLONE_SIGHAND or CLONE_VM)
       syscall
@@ -297,7 +293,7 @@ segment readable executable
     push .exit
 
     mov r12, qword [out_db_fd]
-    ; TODO: buffer output
+    ; TODO: buffer output (careful: size might be bigger than buffer)
 
     ; r15 : tmpfile index * 32
     .rec:
@@ -450,6 +446,15 @@ segment readable executable
     syscall
 
   thread_entry:
+
+    mov eax, __NR_mprotect
+    mov rdi, r14
+    mov esi, _pagesize
+    xor edx, edx
+    syscall
+
+    cmp rax, -4096
+    ja exit_failure_errno
 
     mov rax, qword [rsp]
     mov r15, rax
@@ -739,7 +744,7 @@ segment readable executable
       mov rdx, r15
       shl rdx, (scratch_size_exp - 5)
       add rdx, scratch
-      mov r10, AT_SYMLINK_NOFOLLOW
+      mov r10, AT_SYMLINK_NOFOLLOW ; TODO: make it an option to follow links
       syscall
 
       mov rcx, rbx

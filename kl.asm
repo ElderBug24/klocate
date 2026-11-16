@@ -5,10 +5,11 @@ _strip_errno equ 0
 include "constants.inc"
 include "filebuf.inc"
 
-_pagesize             equ 4096
-filebuf_size          equ (8 * _pagesize)
-max_threads           equ 64
-list_mode_buffer_size equ (8 * _pagesize)
+_pagesize                  equ 4096
+filebuf_size               equ (8 * _pagesize)
+max_threads                equ 64
+list_mode_buffer_size      equ (8 * _pagesize)
+initial_nonreg_buffer_size equ (4 * _pagesize)
 
 _feature_bit_file equ 0
 _feature_bit_dir  equ 1
@@ -77,7 +78,7 @@ segment readable executable
     mov eax, STDIN_FILENO
     mov rsi, qword [path_in_db]
     cmp word [rsi], _char_hyphen_minus ; "-\0"
-    je .in_is_stdin
+    je .skip_open
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
@@ -88,6 +89,7 @@ segment readable executable
     mov rdi, qword [path_in_db]
     cmp rax, -4096
     ja exit_failure_errno_path
+    .skip_open:
     mov r12, rax
 
     mov eax, __NR_fstat
@@ -101,17 +103,17 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno_path
 
-    mov eax, dword [scratch + 24]
-    and eax, S_IFMT
+    mov ebx, dword [scratch + 24]
+    and ebx, S_IFMT
 
-    mov rbx, -EISDIR
-    mov rcx, -EINVAL
-    cmp eax, S_IFDIR
-    cmove rax, rbx
+    mov rax, -EISDIR
+    cmp ebx, S_IFDIR
     je exit_failure_errno_path
-    cmp eax, S_IFREG
-    cmovne rax, rcx
-    jne exit_failure_errno_path
+    mov rax, -EINVAL
+    cmp ebx, S_IFBLK
+    je exit_failure_errno_path
+    cmp ebx, S_IFREG
+    jne .read_nonreg
 
     mov eax, __NR_mmap
     xor edi, edi
@@ -125,7 +127,7 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    .in_is_stdin_back:
+    .read_nonreg_back:
 
     mov r8, rax
 
@@ -138,15 +140,71 @@ segment readable executable
     mov edi, 1
     syscall
 
-    .in_is_stdin:
+    ; r12: fd
+    .read_nonreg:
 
-      mov rax, -ENOSYS
-      jmp exit_failure_errno
+      mov eax, __NR_mmap
+      xor edi, edi
+      mov esi, initial_nonreg_buffer_size
+      mov edx, (PROT_READ or PROT_WRITE)
+      mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
+      mov r8, -1
+      xor r9, r9
+      syscall
 
-      ; TODO: read stdin into buffer
-      ; put size in r13
-      ; put ptr in rax
-      jmp .in_is_stdin_back
+      cmp rax, -4096
+      ja exit_failure_errno
+
+      mov r10, rax ; ptr
+      xor r13, r13 ; offset
+      mov r14, initial_nonreg_buffer_size ; size
+
+      .read_nonreg_loop:
+
+        mov rdx, r14
+        sub rdx, r13
+
+        jle .read_nonreg_realloc
+        .read_nonreg_realloc_back:
+
+        mov eax, __NR_read
+        mov rdi, r12
+        lea rsi, [r10 + r13]
+        syscall
+
+        cmp rax, -EINTR
+        je .read_nonreg_realloc_back
+
+        cmp rax, -4096
+        ja exit_failure_errno
+
+        add r13, rax
+
+        test rax, rax
+        jnz .read_nonreg_loop
+
+      mov rax, r10
+
+      jmp .read_nonreg_back
+
+      .read_nonreg_realloc:
+
+        mov eax, __NR_mremap
+        mov rdi, r10
+        mov rsi, r14
+        shl r14, 1
+        mov rdx, r14
+        mov r10, MREMAP_MAYMOVE
+        syscall
+
+        cmp rax, -4096
+        ja exit_failure_errno
+
+        mov r10, rax
+        mov rdx, r14
+        sub rdx, r13
+
+        jmp .read_nonreg_realloc_back
 
     exit_failure_errno_path:
 
@@ -227,12 +285,18 @@ segment readable executable
 
       xor r15, r15
 
+      mov rbx, r8
+
       mov eax, __NR_mmap
       xor edi, edi
       mov esi, (filebuf_size + list_mode_buffer_size)
       mov edx, (PROT_READ or PROT_WRITE)
       mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
+      mov r8, -1
+      xor r9, r9
       syscall
+
+      mov r8, rbx
 
       cmp rax, -4096
       ja exit_failure_errno

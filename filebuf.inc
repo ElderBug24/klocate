@@ -264,7 +264,7 @@ segment readable executable
     ; destroys : rax, rcx, rdx, rsi, rdi, r11
     filebuf_flush_label:
 
-      filebuf_flush (filebufs + r15 + _filebuf_ptr_offset)
+      filebuf_flush (filebufs + r15)
 
       jmp r10
 
