@@ -8,15 +8,15 @@ include "realpath.inc"
 include "filebuf.inc"
 include "dispatch.inc"
 
-_pagesize             equ 4096
-realpath_buf_size     equ (4 * _pagesize)
-dents_buf_size        equ (2 * _pagesize)
-filebuf_size          equ (8 * _pagesize)
-pipe_buf              equ _pagesize
+pagesize              equ 4096
+realpath_buf_size     equ (4 * pagesize)
+dents_buf_size        equ (2 * pagesize)
+filebuf_size          equ (8 * pagesize)
+pipe_buf              equ pagesize
 max_threads           equ 64 ; TODO: get rid of all limitaions imposed at assembly time
 default_threads_count equ 4
 thread_stack_size_exp equ 24
-thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * _pagesize)
+thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * pagesize)
 scratch_size_exp      equ 8
 scratch_size          equ (1 shl scratch_size_exp)
 
@@ -449,7 +449,7 @@ segment readable executable
 
     mov eax, __NR_mprotect
     mov rdi, r14
-    mov esi, _pagesize
+    mov esi, pagesize
     xor edx, edx
     syscall
 

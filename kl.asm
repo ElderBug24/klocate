@@ -5,21 +5,18 @@ _strip_errno equ 0
 include "constants.inc"
 include "filebuf.inc"
 
-_pagesize                  equ 4096
-filebuf_size               equ (8 * _pagesize)
+pagesize                   equ 4096
+filebuf_size               equ (8 * pagesize)
 max_threads                equ 64
-list_mode_buffer_size      equ (8 * _pagesize)
-initial_nonreg_buffer_size equ (4 * _pagesize)
+list_mode_buffer_size      equ (8 * pagesize)
+initial_nonreg_buffer_size equ (4 * pagesize)
 
-_feature_bit_file equ 0
-_feature_bit_dir  equ 1
-_feature_bit_path equ 2
-
-_entry_bit_dir    equ 31
-
-_feature_flag_file equ (1 shl _feature_bit_file)
-_feature_flag_dir  equ (1 shl _feature_bit_dir )
-_feature_flag_path equ (1 shl _feature_bit_path)
+_feature_bit_file   equ 0
+_feature_bit_dir    equ 1
+_feature_bit_path   equ 2
+_feature_flag_file  equ (1 shl _feature_bit_file)
+_feature_flag_dir   equ (1 shl _feature_bit_dir )
+_feature_flag_path  equ (1 shl _feature_bit_path)
 _feature_flags_mask equ (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
 
 segment readable executable
@@ -339,6 +336,15 @@ segment readable executable
 
         mov byte [rbp], _char_lf
 
+        mov rax, r14
+        mov rcx, r14
+        assert _feature_bit_dir >= _feature_bit_file
+        shr rcx, (_feature_bit_dir - _feature_bit_file)
+        cmp byte [rbp - 1], _char_solidus
+        cmove rax, rcx
+        bt rax, _feature_bit_file
+        jnc .skip_write
+
         mov rsi, qword [filebufs + r15 + _filebuf_ptr_offset]
         add rsi, filebuf_size
         bt r14, _feature_bit_path
@@ -346,6 +352,8 @@ segment readable executable
         lea rcx, [rbp + 1]
         sub rcx, rsi
         filebuf_write filebuf_size
+
+        .skip_write:
 
         cmp byte [rbp - 1], _char_solidus
         cmovne rbp, rbx
