@@ -13,13 +13,15 @@ max_threads                equ 64
 list_mode_buffer_size      equ (8 * pagesize)
 initial_nonreg_buffer_size equ (4 * pagesize)
 
-_feature_bit_file   equ 0
-_feature_bit_dir    equ 1
-_feature_bit_path   equ 2
-_feature_flag_file  equ (1 shl _feature_bit_file)
-_feature_flag_dir   equ (1 shl _feature_bit_dir )
-_feature_flag_path  equ (1 shl _feature_bit_path)
-_feature_flags_mask equ (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
+_feature_bit_file    equ 0
+_feature_bit_dir     equ 1
+_feature_bit_hidden  equ 2
+_feature_bit_path    equ 3
+_feature_flag_file   equ (1 shl _feature_bit_file  )
+_feature_flag_dir    equ (1 shl _feature_bit_dir   )
+_feature_flag_hidden equ (1 shl _feature_bit_hidden)
+_feature_flag_path   equ (1 shl _feature_bit_path  )
+_feature_flags_mask  equ (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_path)
 
 segment readable executable
 
@@ -27,7 +29,7 @@ segment readable executable
 
     mov r8, qword [rsp]
 
-    mov r12, (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
+    mov r12, (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_path)
 
     mov eax, __NR_ioctl
     mov edi, STDIN_FILENO
@@ -342,6 +344,20 @@ segment readable executable
         shr rcx, (_feature_bit_dir - _feature_bit_file)
         cmp byte [rbp - 1], _char_solidus
         cmove rax, rcx
+        setne dil
+
+        cmp byte [rbx], _char_full_stop
+        sete sil
+        bt r14, _feature_bit_hidden
+        setnc dl
+        and sil, dl
+        test sil, dil
+        cmovnz rbp, rbx
+        jnz .rec
+        not dil
+        test sil, dil
+        jnz .skip_dir
+
         bt rax, _feature_bit_file
         jnc .skip_write
 
@@ -386,6 +402,34 @@ segment readable executable
       mov eax, __NR_exit
       xor edi, edi
       syscall
+
+      .skip_dir:
+
+        mov rbp, rbx
+
+        xor ebx, ebx
+        mov eax, _char_solidus
+        mov rdi, r13
+
+        .skip_dir_loop:
+
+          xor ecx, ecx
+          dec rcx
+
+          repne scasb
+
+          xor edx, edx
+          cmp byte [rdi], _char_nul
+          sete dl
+          add edx, edx
+          dec rdx
+          add rbx, rdx
+
+          jns .skip_dir_loop
+
+        mov r13, rdi
+
+        jmp .rec
 
 segment readable
 
