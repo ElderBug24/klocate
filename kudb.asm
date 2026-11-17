@@ -1,12 +1,15 @@
 format ELF64 executable 3
 entry start
 
-_debug_tmpfile_name equ 1
 _strip_errno equ 0
+
+include "macros.inc"
 include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
 include "dispatch.inc"
+
+_debug_tmpfile_name equ 1
 
 pagesize              equ 4096
 realpath_buf_size     equ (4 * pagesize)
@@ -25,6 +28,7 @@ action_dispatch equ 1
 action_end      equ 2
 
 ; TODO: add max dir recursion depth option
+; TODO: add option to ignore hidden files and folders
 
 segment readable executable
 
@@ -186,7 +190,7 @@ segment readable executable
 
     add rsp, realpath_buf_size
 
-    mov r13, [threads_count]
+    mov r13, qword [threads_count]
 
     .thread_spawn_loop:
 
@@ -258,8 +262,8 @@ segment readable executable
     thread_last:
 
     mov r15, qword [threads_count]
+    dec r15
     shl r15, 5
-    sub r15, 32
 
     .flush_loop:
 
@@ -364,7 +368,7 @@ segment readable executable
         mov r13, rdi
 
         xor eax, eax
-        or rcx, -1
+        mov rcx, -1
         cld
         repne scasb
         not rcx
@@ -613,12 +617,12 @@ segment readable executable
         sete bl
         mov edx, ebx
         cmp byte [r13 + 20], _char_nul
-        sete bh
-        and bl, bh
+        sete cl
+        and bl, cl
 
         cmp word [r13 + 20], _char_full_stop ; ".\0"
-        sete bh
-        and dl, bh
+        sete cl
+        and dl, cl
 
         or bl, dl
         jnz .ent_loop_skip
@@ -634,7 +638,7 @@ segment readable executable
         mov r9, 0x8080808080808080
 
         mov rdx, qword [rdi]
-        or rax, -1
+        mov rax, -1
         shl rax, cl
         not rax
         or rdx, rax
@@ -679,9 +683,10 @@ segment readable executable
         .ent_loop_dir:
 
         lea rsi, [r13 + 19]
-        lea rbx, [rcx + 1]
-        add qword [tfoffsets + r15 + 8], rbx
-        filebuf_write_m1_and_2_chars _char_solidus, filebuf_size ; "/\0"
+        mov word [rsi + rcx - 1], _char_solidus
+        inc rcx
+        add qword [tfoffsets + r15 + 8], rcx
+        filebuf_write filebuf_size
 
         mov eax, __NR_openat
         mov rdi, r12

@@ -2,6 +2,8 @@ format ELF64 executable 3
 entry start
 
 _strip_errno equ 0
+
+include "macros.inc"
 include "constants.inc"
 include "filebuf.inc"
 
@@ -20,8 +22,6 @@ _feature_flag_path  equ (1 shl _feature_bit_path)
 _feature_flags_mask equ (_feature_flag_file or _feature_flag_dir or _feature_flag_path)
 
 segment readable executable
-
-; TODO: option to filter files that do not exist anymore
 
   start:
 
@@ -52,7 +52,7 @@ segment readable executable
 
     mov rdi, rax
     xor eax, eax
-    or rcx, -1
+    mov rcx, -1
     repne scasb
     not rcx
     dec rcx
@@ -211,7 +211,7 @@ segment readable executable
         mov r13, rdi
 
         xor eax, eax
-        or rcx, -1
+        mov rcx, -1
         cld
         repne scasb
         not rcx
