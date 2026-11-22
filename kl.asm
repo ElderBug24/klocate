@@ -320,9 +320,9 @@ segment readable executable
       cmp rax, -4096
       ja exit_failure_errno
 
-      mov qword [filebufs + r15 + _filebuf_ptr_offset], rax
-      mov qword [filebufs + r15 + _filebuf_len_offset], 0
-      mov qword [filebufs + r15 + _filebuf_fd_offset], STDOUT_FILENO
+      mov qword [filebufs + r15 + _offset_filebuf_ptr], rax
+      mov qword [filebufs + r15 + _offset_filebuf_len], 0
+      mov qword [filebufs + r15 + _offset_filebuf_fd], STDOUT_FILENO
 
       lea rbp, [rax + filebuf_size]
       mov rax, r13
@@ -388,7 +388,7 @@ segment readable executable
         bt rax, _feature_bit_file
         jnc .skip_write
 
-        mov rsi, qword [filebufs + r15 + _filebuf_ptr_offset]
+        mov rsi, qword [filebufs + r15 + _offset_filebuf_ptr]
         add rsi, filebuf_size
         bt r14, _feature_bit_path
         cmovnc rsi, rbx
@@ -427,7 +427,7 @@ segment readable executable
       cmp r13, [file_end]
       jne exit_failure_corrupted_db
 
-      mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
+      mov rdx, qword [filebufs + r15 + _offset_filebuf_len]
       filebuf_flush (filebufs + r15)
 
       mov eax, __NR_exit_group

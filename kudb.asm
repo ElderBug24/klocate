@@ -16,12 +16,14 @@ realpath_buf_size     equ (4 * pagesize)
 dents_buf_size        equ (2 * pagesize)
 filebuf_size          equ (8 * pagesize)
 pipe_buf              equ pagesize
-max_threads           equ 64 ; TODO: get rid of all limitaions imposed at assembly time
+max_threads           equ 64
 default_threads_count equ 4
 thread_stack_size_exp equ 24
 thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * pagesize)
 scratch_size_exp      equ 8
 scratch_size          equ (1 shl scratch_size_exp)
+ring_entries          equ 1024
+ring_thread_idle_ms   equ 2000
 
 action_work     equ 0
 action_dispatch equ 1
@@ -102,7 +104,7 @@ segment readable executable
     mov edi, AT_FDCWD
     mov rsi, qword [path_out_db]
     mov edx, (O_WRONLY or O_CREAT or O_TRUNC)
-    mov r10, (S_IRUSR or S_IWUSR or S_IRGRP or S_IROTH)
+    mov r10d, (S_IRUSR or S_IWUSR or S_IRGRP or S_IROTH)
     syscall
 
     cmp rax, -4096
@@ -110,7 +112,7 @@ segment readable executable
     ja exit_failure_errno_path
     .out_is_stdout:
     mov qword [out_db_fd], rax
-    mov qword [filebufs + _filebuf_fd_offset], rax
+    mov qword [filebufs + _offset_filebuf_fd], rax
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
@@ -130,7 +132,7 @@ segment readable executable
     xor edi, edi
     imul rsi, r13, (thread_stack_size + filebuf_size)
     mov edx, (PROT_READ or PROT_WRITE)
-    mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
+    mov r10d, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
     mov r8, -1
     xor r9, r9
     syscall
@@ -148,8 +150,8 @@ segment readable executable
 
     .zero_loop:
 
-      mov qword [filebufs + rcx + _filebuf_ptr_offset], r15
-      mov qword [filebufs + rcx + _filebuf_len_offset], 0
+      mov qword [filebufs + rcx + _offset_filebuf_ptr], r15
+      mov qword [filebufs + rcx + _offset_filebuf_len], 0
       mov qword [tfoffsets + rcx], 0
       mov qword [tfoffsets + rcx + 8], 0
       add r15, filebuf_size
@@ -185,7 +187,7 @@ segment readable executable
 
     filebuf_write_1_char_nocheck _char_nul
 
-    mov rdx, qword [filebufs + _filebuf_len_offset]
+    mov rdx, qword [filebufs + _offset_filebuf_len]
     filebuf_flush filebufs
 
     add rsp, realpath_buf_size
@@ -228,7 +230,7 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov qword [filebufs + _filebuf_fd_offset], rax
+    mov qword [filebufs + _offset_filebuf_fd], rax
 
     xor r15, r15
 
@@ -268,9 +270,9 @@ segment readable executable
     .flush_loop:
 
       mov eax, __NR_write
-      mov rdi, qword [filebufs + r15 + _filebuf_fd_offset]
-      mov rsi, qword [filebufs + r15 + _filebuf_ptr_offset]
-      mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
+      mov rdi, qword [filebufs + r15 + _offset_filebuf_fd]
+      mov rsi, qword [filebufs + r15 + _offset_filebuf_ptr]
+      mov rdx, qword [filebufs + r15 + _offset_filebuf_len]
       syscall
 
       mov rsi, qword [tfoffsets + r15]
@@ -280,8 +282,8 @@ segment readable executable
       mov eax, __NR_mmap
       xor edi, edi
       mov edx, PROT_READ
-      mov r10, (MAP_PRIVATE or MAP_POPULATE)
-      mov r8, qword [filebufs + r15 + _filebuf_fd_offset]
+      mov r10d, (MAP_PRIVATE or MAP_POPULATE)
+      mov r8, qword [filebufs + r15 + _offset_filebuf_fd]
       xor r9, r9
       syscall
 
@@ -291,10 +293,398 @@ segment readable executable
       sub r15, 32
       jns .flush_loop
 
+    mov eax, __NR_io_uring_setup
+    mov edi, ring_entries
+    mov rsi, ring_params
+    syscall
+
+    cmp rax, -EINVAL
+    sete dl
+    cmp rax, -EPERM
+    sete bl
+    or dl, bl
+    jnz thread_last_no_ring
+    cmp rax, -4096
+    ja exit_failure_errno
+
+    mov [ring_fd], rax
+
+    mov ecx, (IORING_FEAT_SINGLE_MMAP or IORING_FEAT_SQPOLL_NONFIXED)
+    mov eax, [ring_params + _offset_p_features]
+    and eax, ecx
+    cmp eax, ecx
+    jne thread_last_no_ring
+
+    mov eax, __NR_mmap
+    xor edi, edi
+    mov esi, [ring_params + _offset_p_cq_entries]
+    shl esi, 4
+    add esi, [ring_params + _offset_p_cq_cqes]
+    mov edx, (PROT_READ or PROT_WRITE)
+    mov r10d, (MAP_SHARED or MAP_POPULATE)
+    mov r8, [ring_fd]
+    mov r9d, IORING_OFF_SQ_RING
+    syscall
+
+    cmp rax, -4096
+    ja exit_failure_errno
+
+    mov [ring_base], rax
+
+    mov eax, __NR_mmap
+    xor edi, edi
+    mov esi, [ring_params + _offset_p_sq_entries]
+    shl esi, 6
+    mov edx, (PROT_READ or PROT_WRITE)
+    mov r10d, (MAP_SHARED or MAP_POPULATE)
+    mov r8, [ring_fd]
+    mov r9d, IORING_OFF_SQES
+    syscall
+
+    cmp rax, -4096
+    ja exit_failure_errno
+
+    mov [sqes_base], rax
+
     xor r13, r13
     xor r15, r15
 
-    push .exit
+    push .fin
+
+    mov r12, qword [out_db_fd]
+
+    ; r15 : tmpfile index * 32
+    .rec:
+
+      add r13, 17
+      mov rsi, qword [filebufs + r15 + 24]
+      add rsi, r13
+
+      movzx eax, byte [rsi - 17]
+      mov rdx, qword [rsi - 16]
+
+      cmp al, action_dispatch
+      je .dispatch
+      ja .ret
+
+      add r13, rdx
+
+      mov r8, qword [ring_base]
+      mov eax, dword [ring_params + _offset_p_sq_tail]
+      mov edi, dword [r8 + rax]
+      mov r9d, dword [batch_count]
+      lea eax, [rdi + r9]
+      mov ecx, dword [ring_params + _offset_p_sq_entries]
+      dec ecx
+      and ecx, eax
+      shl ecx, 6
+      add rcx, [sqes_base]
+      mov byte [rcx + _offset_sqe_opcode], IORING_OP_WRITE
+      mov byte [rcx + _offset_sqe_flags], (IOSQE_IO_LINK or IOSQE_CQE_SKIP_SUCCESS or IOSQE_ASYNC)
+      mov dword [rcx + _offset_sqe_fd], r12d
+      mov qword [rcx + _offset_sqe_off], -1
+      mov qword [rcx + _offset_sqe_addr], rsi
+      mov dword [rcx + _offset_sqe_len], edx
+      mov rax, rdx
+      shl rax, 47
+      or rax, rsi
+      mov qword [rcx + _offset_sqe_user_data], rax
+      inc r9d
+      mov dword [batch_count], r9d
+      cmp r9d, dword [ring_params + _offset_p_sq_entries]
+      jb .end
+
+      .publish:
+
+        mov eax, dword [ring_params + _offset_p_sq_tail]
+        mov edi, dword [r8 + rax]
+        lea eax, [rdi + r9 - 1]
+        mov ecx, dword [ring_params + _offset_p_sq_entries]
+        dec ecx
+        and ecx, eax
+        shl ecx, 6
+        add rcx, qword [sqes_base]
+        mov byte [rcx + _offset_sqe_flags], IOSQE_ASYNC
+        bts qword [rcx + _offset_sqe_user_data], 63
+        add edi, r9d
+        mov eax, dword [ring_params + _offset_p_sq_tail]
+        mov dword [r8 + rax], edi
+        mov dword [batch_count], 0
+
+        mfence
+
+        mov r10d, IORING_ENTER_GETEVENTS
+        mov eax, dword [ring_params + _offset_p_sq_flags]
+        test dword [r8 + rax], IORING_SQ_NEED_WAKEUP
+        jz .wait
+        or r10d, IORING_ENTER_SQ_WAKEUP
+
+      .wait:
+
+        mov eax, __NR_io_uring_enter
+        mov rdi, qword [ring_fd]
+        xor esi, esi
+        mov edx, 1
+        xor r8, r8
+        xor r9, r9
+        syscall
+
+        mov r8, qword [ring_base]
+
+      .reap:
+
+        mov ecx, dword [ring_params + _offset_p_cq_head]
+        mov eax, dword [r8 + rcx]
+        mov ecx, dword [ring_params + _offset_p_cq_tail]
+        cmp eax, dword [r8 + rcx]
+        je .wait
+        mov ecx, dword [ring_params + _offset_p_cq_entries]
+        dec ecx
+        and ecx, eax
+        shl ecx, 4
+        mov edi, [ring_params + _offset_p_cq_cqes]
+        add rdi, r8
+        add rdi, rcx
+        mov r11, qword [rdi + _offset_cqe_user_data]
+        mov r9d, dword [rdi + _offset_cqe_res]
+        inc eax
+        mov edi, dword [ring_params + _offset_p_cq_head]
+        mov dword [r8 + rdi], eax
+        mov rdx, r11
+        shr rdx, 63
+        mov rcx, r11
+        shl rcx, 1
+        shr rcx, 48
+        cmp r9d, ecx
+        je .ok
+        test r9d, r9d
+        jns .short
+        cmp r9d, -EINTR
+        je .again
+        movsxd rax, r9d
+        cmp r9d, -ECANCELED
+        jne exit_failure_errno
+        jmp .again
+
+      .short:
+
+        mov eax, r9d
+        add r11, rax
+        shl rax, 47
+        sub r11, rax
+
+      .again:
+
+        mov rax, retry_ud
+        mov ecx, [retry_n]
+        mov qword [rax + 8 * rcx], r11
+        inc ecx
+        mov dword [retry_n], ecx
+
+      .ok:
+
+        test edx, edx
+        jz .reap
+        mov r9d, dword [retry_n]
+        test r9d, r9d
+        jz .end
+        mov dword [retry_n], 0
+        mov eax, dword [ring_params + _offset_p_sq_tail]
+        mov edi, dword [r8 + rax]
+        xor ebx, ebx
+
+      .rebuf:
+
+        lea eax, [rdi + rbx]
+        mov ecx, dword [ring_params + _offset_p_sq_entries]
+        dec ecx
+        and ecx, eax
+        shl ecx, 6
+        add rcx, qword [sqes_base]
+        mov rax, retry_ud
+        mov rax, qword [rax + 8 * rbx]
+        btr rax, 63
+        mov r10, rax
+        shr r10, 47
+        mov rdx, rax
+        shl rdx, 17
+        shr rdx, 17
+        mov byte [rcx + _offset_sqe_opcode], IORING_OP_WRITE
+        mov byte [rcx + _offset_sqe_flags], (IOSQE_IO_LINK or IOSQE_CQE_SKIP_SUCCESS or IOSQE_ASYNC)
+        mov dword [rcx + _offset_sqe_fd], r12d
+        mov qword [rcx + _offset_sqe_off], -1
+        mov qword [rcx + _offset_sqe_addr], rdx
+        mov dword [rcx + _offset_sqe_len], r10d
+        mov qword [rcx + _offset_sqe_user_data], rax
+        inc ebx
+        cmp ebx, r9d
+        jb .rebuf
+        jmp .publish
+
+      .end:
+
+      jmp .rec
+
+      .dispatch:
+
+        mov rcx, qword [rsi - 8]
+
+        push r13
+        mov r13, rdx
+        push r15
+        mov r15, rcx
+
+        call .rec
+
+        pop r15
+        pop r13
+
+        jmp .rec
+
+      .ret:
+
+        ret
+
+    .fin:
+
+      cmp dword [batch_count], 0
+      je thread_last_no_ring.end
+      mov r8, qword [ring_base]
+      mov r9d, dword [batch_count]
+
+    .fin_publish:
+
+      mov eax, dword [ring_params + _offset_p_sq_tail]
+      mov edi, dword [r8 + rax]
+      lea eax, [rdi + r9 - 1]
+      mov ecx, dword [ring_params + _offset_p_sq_entries]
+      dec ecx
+      and ecx, eax
+      shl ecx, 6
+      add rcx, qword [sqes_base]
+      mov byte [rcx + _offset_sqe_flags], IOSQE_ASYNC
+      bts qword [rcx + _offset_sqe_user_data], 63
+      add edi, r9d
+      mov eax, dword [ring_params + _offset_p_sq_tail]
+      mov dword [r8 + rax], edi
+      mov dword [batch_count], 0
+
+      mfence
+
+      mov r10d, IORING_ENTER_GETEVENTS
+      mov eax, dword [ring_params + _offset_p_sq_flags]
+      test dword [r8 + rax], IORING_SQ_NEED_WAKEUP
+      jz .fin_wait
+      or r10d, IORING_ENTER_SQ_WAKEUP
+
+    .fin_wait:
+
+      mov eax, __NR_io_uring_enter
+      mov edi, dword [ring_fd]
+      xor esi, esi
+      mov edx, 1
+      xor r8, r8
+      xor r9, r9
+      syscall
+
+      mov r8, qword [ring_base]
+
+    .fin_reap:
+
+      mov ecx, dword [ring_params + _offset_p_cq_head]
+      mov eax, dword [r8 + rcx]
+      mov ecx, dword [ring_params + _offset_p_cq_tail]
+      cmp eax, dword [r8 + rcx]
+      je .fin_wait
+      mov ecx, dword [ring_params + _offset_p_cq_entries]
+      dec ecx
+      and ecx, eax
+      shl ecx, 4
+      mov edi, dword [ring_params + _offset_p_cq_cqes]
+      add rdi, r8
+      add rdi, rcx
+      mov r11, qword [rdi + _offset_cqe_user_data]
+      mov r9d, dword [rdi + _offset_cqe_res]
+      inc eax
+      mov edi, dword [ring_params + _offset_p_cq_head]
+      mov dword [r8 + rdi], eax
+      mov rdx, r11
+      shr rdx, 63
+      mov rcx, r11
+      shl rcx, 1
+      shr rcx, 48
+      cmp r9d, ecx
+      je .fin_ok
+      test r9d, r9d
+      jns .fin_short
+      cmp r9d, -EINTR
+      je .fin_again
+      movsxd rax, r9d
+      cmp r9d, -ECANCELED
+      jne exit_failure_errno
+      jmp .fin_again
+
+    .fin_short:
+
+      mov eax, r9d
+      add r11, rax
+      shl rax, 47
+      sub r11, rax
+
+    .fin_again:
+
+      mov rax, retry_ud
+      mov ecx, dword [retry_n]
+      mov qword [rax + 8 * rcx], r11
+      inc ecx
+      mov dword [retry_n], ecx
+
+    .fin_ok:
+
+      test edx, edx
+      jz .fin_reap
+      mov r9d, dword [retry_n]
+      test r9d, r9d
+      jz thread_last_no_ring.end
+      mov dword [retry_n], 0
+      mov eax, dword [ring_params + _offset_p_sq_tail]
+      mov edi, dword [r8 + rax]
+      xor ebx, ebx
+
+    .fin_rebuf:
+
+      lea eax, [rdi + rbx]
+      mov ecx, dword [ring_params + _offset_p_sq_entries]
+      dec ecx
+      and ecx, eax
+      shl ecx, 6
+      add rcx, qword [sqes_base]
+      mov rax, retry_ud
+      mov rax, qword [rax + 8 * rbx]
+      btr rax, 63
+      mov r10, rax
+      shr r10, 47
+      mov rdx, rax
+      shl rdx, 17
+      shr rdx, 17
+      mov byte [rcx + _offset_sqe_opcode], IORING_OP_WRITE
+      mov byte [rcx + _offset_sqe_flags], (IOSQE_IO_LINK or IOSQE_CQE_SKIP_SUCCESS or IOSQE_ASYNC)
+      mov dword [rcx + _offset_sqe_fd], r12d
+      mov qword [rcx + _offset_sqe_off], -1
+      mov qword [rcx + _offset_sqe_addr], rdx
+      mov dword [rcx + _offset_sqe_len], r10d
+      mov qword [rcx + _offset_sqe_user_data], rax
+      inc ebx
+      cmp ebx, r9d
+      jb .fin_rebuf
+      jmp .fin_publish
+
+    thread_last_no_ring:
+
+    xor r13, r13
+    xor r15, r15
+
+    push .end
 
     mov r12, qword [out_db_fd]
     ; TODO: buffer output (careful: size might be bigger than buffer)
@@ -348,7 +738,7 @@ segment readable executable
 
         ret
 
-    .exit:
+    .end:
 
       mov eax, __NR_write
       mov rdi, r12
@@ -523,7 +913,7 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov qword [filebufs + r15 + _filebuf_fd_offset], rax
+    mov qword [filebufs + r15 + _offset_filebuf_fd], rax
 
     jmp thread_sleep_skip
 
@@ -535,11 +925,11 @@ segment readable executable
 
       mov rax, qword [tfoffsets + r15 + 8]
       lea rsi, [rax + 16]
-      mov rcx, qword [filebufs + r15 + _filebuf_len_offset]
+      mov rcx, qword [filebufs + r15 + _offset_filebuf_len]
       cmp rsi, rcx
       ja .not_cached
 
-      mov rdi, qword [filebufs + r15 + _filebuf_ptr_offset]
+      mov rdi, qword [filebufs + r15 + _offset_filebuf_ptr]
       add rdi, rcx
       sub rdi, rsi
 
@@ -554,7 +944,7 @@ segment readable executable
       filebuf_write_1_char_and_skip_n_nocheck action_end, 16
 
       mov eax, __NR_pwrite64
-      mov rdi, qword [filebufs + r15 + _filebuf_fd_offset]
+      mov rdi, qword [filebufs + r15 + _offset_filebuf_fd]
       lea rsi, [tfoffsets + r15 + 8]
       mov edx, 8
       mov r10, qword [tfoffsets + r15]
@@ -749,7 +1139,7 @@ segment readable executable
       mov rdx, r15
       shl rdx, (scratch_size_exp - 5)
       add rdx, scratch
-      mov r10, AT_SYMLINK_NOFOLLOW ; TODO: make it an option to follow links
+      mov r10, AT_SYMLINK_NOFOLLOW
       syscall
 
       mov rcx, rbx
@@ -778,11 +1168,11 @@ segment readable executable
 
       mov rax, qword [tfoffsets + r15 + 8]
       lea rsi, [rax + 16]
-      mov rcx, qword [filebufs + r15 + _filebuf_len_offset]
+      mov rcx, qword [filebufs + r15 + _offset_filebuf_len]
       cmp rsi, rcx
       ja .not_cached
 
-      mov rdi, qword [filebufs + r15 + _filebuf_ptr_offset]
+      mov rdi, qword [filebufs + r15 + _offset_filebuf_ptr]
       add rdi, rcx
       sub rdi, rsi
 
@@ -793,7 +1183,7 @@ segment readable executable
       .not_cached:
 
       mov eax, __NR_pwrite64
-      mov rdi, qword [filebufs + r15 + _filebuf_fd_offset]
+      mov rdi, qword [filebufs + r15 + _offset_filebuf_fd]
       lea rsi, [tfoffsets + r15 + 8]
       mov edx, 8
       mov r10, qword [tfoffsets + r15]
@@ -848,7 +1238,7 @@ segment readable
 
   msg_err_too_many_threads db "Too many threads (max: "
                                                db_int max_threads
-                                                              db ")", 10
+                                                             db ")", 10
   msg_err_too_many_threads_len = $ - msg_err_too_many_threads
 
   default_path_root_dir   db "/", _char_nul
@@ -864,13 +1254,32 @@ segment readable
 
 segment readable writeable
 
-  out_db_fd dq -1
-
   path_root_dir dq default_path_root_dir
   path_out_db   dq default_path_out_db
   threads_count dq default_threads_count
 
+  ring_params:
+    dd ring_entries
+    dd ring_entries
+    dd (IORING_SETUP_SQPOLL or IORING_SETUP_NO_SQARRAY or IORING_SETUP_CQSIZE or IORING_SETUP_CLAMP or IORING_SETUP_SINGLE_ISSUER)
+    dd 0
+    dd ring_thread_idle_ms
+    dd 0
+    dd 0
+    dd 0, 0, 0
+    db 40 dup 0
+    db 40 dup 0
+
+  ring_base   dq 0
+  sqes_base   dq 0
+  batch_count dd 0
+  retry_n     dd 0
+  retry_ud    dq 256 dup 0
+
   dispatch_declare max_threads
+
+  out_db_fd rq 1
+  ring_fd   rq 1
 
   filebufs  rq (max_threads * 4) ; 32 bytes padded
   tfoffsets rq (max_threads * 4) ; 32 bytes padded
