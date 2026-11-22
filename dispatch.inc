@@ -31,16 +31,16 @@ macro dispatch_lock_state {
 
 }
 
-; reg64_task : 64 bit register
-; reg64_id   : 64 bit register containing worker id
-; destroys   : rax, rcx, rdx, rsi, rdi, r10, r11, reg64_task (containing dispatched task)
-macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_label {
+; reg_task : 64 bit register
+; reg_id   : 64 bit register containing worker id
+; destroys : rax, rcx, rdx, rsi, rdi, r10, r11, reg_task (containing dispatched task)
+macro dispatch_worker_idle reg_task, reg_id, threads_count_ptr, thread_last_label {
 
   local .wait, .woken, .last
 
   sub rsp, 24
   mov dword [rsp], 0
-  mov qword [rsp + 8], reg64_id
+  mov qword [rsp + 8], reg_id
   mov qword [rsp + 16], 0
 
   dispatch_lock_state
@@ -75,30 +75,30 @@ macro dispatch_worker_idle reg64_task, reg64_id, threads_count_ptr, thread_last_
 
   .woken:
 
-  mov reg64_task, qword [rsp + 16]
+  mov reg_task, qword [rsp + 16]
   add rsp, 24
 
 }
 
-; reg64_task : 64 bit register containing task to dispatch
-; reg64_id   : 64 bit register containing id
-; destroys   : rax, rcx, rdx, rsi, rdi, r8, r9, r11, reg64_task (containing result of dispatch), reg64_id (containing worker id if dispatched)
-macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
+; reg_task : 64 bit register containing task to dispatch
+; reg_id   : 64 bit register containing id
+; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r11, reg_task (containing result of dispatch), reg_id (containing worker id if dispatched)
+macro dispatch_try_dispatch reg_out, reg_id, reg_off, reg_task {
 
   local .end
 
-  mov rdi, reg64_task
+  mov rdi, reg_task
 
   dispatch_lock_state
 
-  mov reg64_out, qword [dispatch_count]
-  mov qword [dispatch_lock], reg64_out
-  test reg64_out, reg64_out
+  mov reg_out, qword [dispatch_count]
+  mov qword [dispatch_lock], reg_out
+  test reg_out, reg_out
   jz .end
-  dec reg64_out
-  mov qword [dispatch_count], reg64_out
+  dec reg_out
+  mov qword [dispatch_count], reg_out
 
-  mov r8, qword [dispatch_stack + 8 * reg64_out]
+  mov r8, qword [dispatch_stack + 8 * reg_out]
   mov qword [dispatch_lock], 0
   mov qword [r8 + 16], rdi
   mov r9, qword [r8 + 8]
@@ -111,9 +111,9 @@ macro dispatch_try_dispatch reg64_out, reg64_id, reg64_off, reg64_task {
   mov edx, 1
   syscall
 
-  mov reg64_out, 1
-  mov reg64_id, r9
-  mov reg64_off, r8
+  mov reg_out, 1
+  mov reg_id, r9
+  mov reg_off, r8
 
   .end:
 

@@ -23,6 +23,8 @@ _feature_flag_hidden equ (1 shl _feature_bit_hidden)
 _feature_flag_path   equ (1 shl _feature_bit_path  )
 _feature_flags_mask  equ (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_path)
 
+; TODO: add max dir recursion depth option
+
 segment readable executable
 
   start:
@@ -135,7 +137,7 @@ segment readable executable
 
     ; TODO: querry mode
 
-    mov eax, __NR_exit
+    mov eax, __NR_exit_group
     mov edi, 1
     syscall
 
@@ -154,9 +156,9 @@ segment readable executable
       cmp rax, -4096
       ja exit_failure_errno
 
-      mov r10, rax ; ptr
-      xor r13, r13 ; offset
-      mov r14, initial_nonreg_buffer_size ; size
+      mov r10, rax
+      xor r13, r13
+      mov r14, initial_nonreg_buffer_size
 
       .read_nonreg_loop:
 
@@ -255,7 +257,7 @@ segment readable executable
 
       end if
 
-      mov eax, __NR_exit
+      mov eax, __NR_exit_group
       dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
@@ -267,7 +269,24 @@ segment readable executable
       mov edx, msg_err_too_many_args_len
       syscall
 
-      mov eax, __NR_exit
+      mov eax, __NR_exit_group
+      dec edi ; 1 = STDERR_FILENO - 1
+      syscall
+
+    exit_failure_corrupted_db:
+
+      mov eax, __NR_write
+      mov edi, STDERR_FILENO
+      mov rsi, msg_error
+      mov edx, (msg_error_len + msg_sep_len)
+      syscall
+
+      mov eax, __NR_write
+      mov rsi, msg_err_corrupted_db
+      mov edx, msg_err_corrupted_db_len
+      syscall
+
+      mov eax, __NR_exit_group
       dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
@@ -306,7 +325,12 @@ segment readable executable
       mov qword [filebufs + r15 + _filebuf_fd_offset], STDOUT_FILENO
 
       lea rbp, [rax + filebuf_size]
+      mov rax, r13
       mov r13, r8
+      add r8, rax
+      mov [file_end], r8
+
+      push exit_failure_corrupted_db
 
       jmp .skip_ahead
 
@@ -330,13 +354,16 @@ segment readable executable
           mov byte [rbp], al
           inc rbp
 
-          mov al, byte [r13]
+          mov ax, word [r13]
           inc r13
 
           cmp al, _char_nul
           jne .copy_loop
 
         mov byte [rbp], _char_lf
+
+        test ah, ah
+        jz exit_failure_corrupted_db
 
         mov rax, r14
         mov rcx, r14
@@ -396,10 +423,14 @@ segment readable executable
 
       .end:
 
+      add r13, 2
+      cmp r13, [file_end]
+      jne exit_failure_corrupted_db
+
       mov rdx, qword [filebufs + r15 + _filebuf_len_offset]
       filebuf_flush (filebufs + r15)
 
-      mov eax, __NR_exit
+      mov eax, __NR_exit_group
       xor edi, edi
       syscall
 
@@ -418,8 +449,11 @@ segment readable executable
 
           repne scasb
 
+          mov ax, word [rdi]
           xor edx, edx
-          cmp byte [rdi], _char_nul
+          test ax, ax
+          jz exit_failure_corrupted_db
+          cmp al, _char_nul
           sete dl
           add edx, edx
           dec rdx
@@ -433,16 +467,19 @@ segment readable executable
 
 segment readable
 
-  char_solidus db _char_solidus
-  char_lf      db _char_lf
-
-  msg_err_too_many_args db "error"
+  msg_error             db "error"
+  msg_error_len = $ - msg_error
   msg_sep               db      ": "
   msg_sep_len = $ - msg_sep
                         db        "Too many arguments", _char_lf
+  label msg_err_too_many_args byte at msg_error
   msg_err_too_many_args_len = $ - msg_err_too_many_args
+  msg_err_corrupted_db  db        "Corrupted Database"
+  char_lf db _char_lf
+  msg_err_corrupted_db_len  = $ - msg_err_corrupted_db
 
   default_path_in_db db "/var/cache/klocate/db", _char_nul
+  label char_solidus byte at default_path_in_db
   path_stdin db "-", 0
 
 segment readable writeable
@@ -451,6 +488,7 @@ segment readable writeable
   querry_size rq 1
   features    rq 1
   root_offset rq 1
+  file_end    rq 1
 
   path_in_db rq 1
 
