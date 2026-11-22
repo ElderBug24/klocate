@@ -478,7 +478,7 @@ segment readable
   char_lf db _char_lf
   msg_err_corrupted_db_len  = $ - msg_err_corrupted_db
 
-  default_path_in_db db "/var/cache/klocate/db", _char_nul
+  default_path_in_db db "/var/lib/klocate/db", _char_nul
   label char_solidus byte at default_path_in_db
   path_stdin db "-", 0
 

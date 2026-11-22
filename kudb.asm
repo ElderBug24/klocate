@@ -19,7 +19,7 @@ pipe_buf              equ pagesize
 max_threads           equ 64
 default_threads_count equ 4
 thread_stack_size_exp equ 24
-thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * pagesize)
+thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * pagesize = 4Mib)
 scratch_size_exp      equ 8
 scratch_size          equ (1 shl scratch_size_exp)
 ring_entries          equ 1024
@@ -1242,8 +1242,8 @@ segment readable
   msg_err_too_many_threads_len = $ - msg_err_too_many_threads
 
   default_path_root_dir   db "/", _char_nul
-  default_path_out_db_dir db "/var/cache/klocate", _char_nul
-  default_path_out_db     db "/var/cache/klocate/db", _char_nul
+  default_path_out_db_dir db "/var/lib/klocate", _char_nul
+  default_path_out_db     db "/var/lib/klocate/db", _char_nul
 
   tmpfile_debug_name db "tmpfile"
   tmpfile_debug_name_len = $ - tmpfile_debug_name
