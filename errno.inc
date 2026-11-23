@@ -135,565 +135,287 @@ ENOTRECOVERABLE equ 131
 ERFKILL equ 132
 EHWPOISON equ 133
 
-if used _errno_table_msg
+if used _errno_table
 
   segment readable
 
-    align 4
+    label _errno_table byte at $
 
-    _errno_table_msg dd _errno_0_msg, _errno_1_msg, _errno_2_msg, _errno_3_msg, _errno_4_msg, _errno_5_msg, _errno_6_msg, _errno_7_msg, _errno_8_msg, _errno_9_msg, _errno_10_msg, _errno_11_msg, _errno_12_msg, _errno_13_msg, _errno_14_msg, _errno_15_msg, _errno_16_msg, _errno_17_msg, _errno_18_msg, _errno_19_msg, _errno_20_msg, _errno_21_msg, _errno_22_msg, _errno_23_msg, _errno_24_msg, _errno_25_msg, _errno_26_msg, _errno_27_msg, _errno_28_msg, _errno_29_msg, _errno_30_msg, _errno_31_msg, _errno_32_msg, _errno_33_msg, _errno_34_msg, _errno_35_msg, _errno_36_msg, _errno_37_msg, _errno_38_msg, _errno_39_msg, _errno_40_msg, _errno_41_msg, _errno_42_msg, _errno_43_msg, _errno_44_msg, _errno_45_msg, _errno_46_msg, _errno_47_msg, _errno_48_msg, _errno_49_msg, _errno_50_msg, _errno_51_msg, _errno_52_msg, _errno_53_msg, _errno_54_msg, _errno_55_msg, _errno_56_msg, _errno_57_msg, _errno_58_msg, _errno_59_msg, _errno_60_msg, _errno_61_msg, _errno_62_msg, _errno_63_msg, _errno_64_msg, _errno_65_msg, _errno_66_msg, _errno_67_msg, _errno_68_msg, _errno_69_msg, _errno_70_msg, _errno_71_msg, _errno_72_msg, _errno_73_msg, _errno_74_msg, _errno_75_msg, _errno_76_msg, _errno_77_msg, _errno_78_msg, _errno_79_msg, _errno_80_msg, _errno_81_msg, _errno_82_msg, _errno_83_msg, _errno_84_msg, _errno_85_msg, _errno_86_msg, _errno_87_msg, _errno_88_msg, _errno_89_msg, _errno_90_msg, _errno_91_msg, _errno_92_msg, _errno_93_msg, _errno_94_msg, _errno_95_msg, _errno_96_msg, _errno_97_msg, _errno_98_msg, _errno_99_msg, _errno_100_msg, _errno_101_msg, _errno_102_msg, _errno_103_msg, _errno_104_msg, _errno_105_msg, _errno_106_msg, _errno_107_msg, _errno_108_msg, _errno_109_msg, _errno_110_msg, _errno_111_msg, _errno_112_msg, _errno_113_msg, _errno_114_msg, _errno_115_msg, _errno_116_msg, _errno_117_msg, _errno_118_msg, _errno_119_msg, _errno_120_msg, _errno_121_msg, _errno_122_msg, _errno_123_msg, _errno_124_msg, _errno_125_msg, _errno_126_msg, _errno_127_msg, _errno_128_msg, _errno_129_msg, _errno_130_msg, _errno_131_msg, _errno_132_msg, _errno_133_msg
+    if ~ defined _strip_errno | _strip_errno = 0
 
-    if defined _strip_errno & _strip_errno = 0
-
-      _errno_0_msg db "Success"
-      _errno_0_len = $ - _errno_0_msg
-      _errno_1_msg db "Operation not permitted"
-      _errno_1_len = $ - _errno_1_msg
-      _errno_2_msg db "No such file or directory"
-      _errno_2_len = $ - _errno_2_msg
-      _errno_3_msg db "No such process"
-      _errno_3_len = $ - _errno_3_msg
-      _errno_4_msg db "Interrupted system call"
-      _errno_4_len = $ - _errno_4_msg
-      _errno_5_msg db "Input/output error"
-      _errno_5_len = $ - _errno_5_msg
-      _errno_6_msg db "No such device or address"
-      _errno_6_len = $ - _errno_6_msg
-      _errno_7_msg db "Argument list too long"
-      _errno_7_len = $ - _errno_7_msg
-      _errno_8_msg db "Exec format error"
-      _errno_8_len = $ - _errno_8_msg
-      _errno_9_msg db "Bad file descriptor"
-      _errno_9_len = $ - _errno_9_msg
-      _errno_10_msg db "No child processes"
-      _errno_10_len = $ - _errno_10_msg
-      _errno_11_msg db "Resource temporarily unavailable"
-      _errno_11_len = $ - _errno_11_msg
-      _errno_12_msg db "Cannot allocate memory"
-      _errno_12_len = $ - _errno_12_msg
-      _errno_13_msg db "Permission denied"
-      _errno_13_len = $ - _errno_13_msg
-      _errno_14_msg db "Bad address"
-      _errno_14_len = $ - _errno_14_msg
-      _errno_15_msg db "Block device required"
-      _errno_15_len = $ - _errno_15_msg
-      _errno_16_msg db "Device or resource busy"
-      _errno_16_len = $ - _errno_16_msg
-      _errno_17_msg db "File exists"
-      _errno_17_len = $ - _errno_17_msg
-      _errno_18_msg db "Invalid cross-device link"
-      _errno_18_len = $ - _errno_18_msg
-      _errno_19_msg db "No such device"
-      _errno_19_len = $ - _errno_19_msg
-      _errno_20_msg db "Not a directory"
-      _errno_20_len = $ - _errno_20_msg
-      _errno_21_msg db "Is a directory"
-      _errno_21_len = $ - _errno_21_msg
-      _errno_22_msg db "Invalid argument"
-      _errno_22_len = $ - _errno_22_msg
-      _errno_23_msg db "Too many open files in system"
-      _errno_23_len = $ - _errno_23_msg
-      _errno_24_msg db "Too many open files"
-      _errno_24_len = $ - _errno_24_msg
-      _errno_25_msg db "Inappropriate ioctl for device"
-      _errno_25_len = $ - _errno_25_msg
-      _errno_26_msg db "Text file busy"
-      _errno_26_len = $ - _errno_26_msg
-      _errno_27_msg db "File too large"
-      _errno_27_len = $ - _errno_27_msg
-      _errno_28_msg db "No space left on device"
-      _errno_28_len = $ - _errno_28_msg
-      _errno_29_msg db "Illegal seek"
-      _errno_29_len = $ - _errno_29_msg
-      _errno_30_msg db "Read-only file system"
-      _errno_30_len = $ - _errno_30_msg
-      _errno_31_msg db "Too many links"
-      _errno_31_len = $ - _errno_31_msg
-      _errno_32_msg db "Broken pipe"
-      _errno_32_len = $ - _errno_32_msg
-      _errno_33_msg db "Numerical argument out of domain"
-      _errno_33_len = $ - _errno_33_msg
-      _errno_34_msg db "Numerical result out of range"
-      _errno_34_len = $ - _errno_34_msg
-      _errno_35_msg db "Resource deadlock avoided"
-      _errno_35_len = $ - _errno_35_msg
-      _errno_36_msg db "File name too long"
-      _errno_36_len = $ - _errno_36_msg
-      _errno_37_msg db "No locks available"
-      _errno_37_len = $ - _errno_37_msg
-      _errno_38_msg db "Function not implemented"
-      _errno_38_len = $ - _errno_38_msg
-      _errno_39_msg db "Directory not empty"
-      _errno_39_len = $ - _errno_39_msg
-      _errno_40_msg db "Too many levels of symbolic links"
-      _errno_40_len = $ - _errno_40_msg
-      _errno_41_msg db "Unknown error 41"
-      _errno_41_len = $ - _errno_41_msg
-      _errno_42_msg db "No message of desired type"
-      _errno_42_len = $ - _errno_42_msg
-      _errno_43_msg db "Identifier removed"
-      _errno_43_len = $ - _errno_43_msg
-      _errno_44_msg db "Channel number out of range"
-      _errno_44_len = $ - _errno_44_msg
-      _errno_45_msg db "Level 2 not synchronized"
-      _errno_45_len = $ - _errno_45_msg
-      _errno_46_msg db "Level 3 halted"
-      _errno_46_len = $ - _errno_46_msg
-      _errno_47_msg db "Level 3 reset"
-      _errno_47_len = $ - _errno_47_msg
-      _errno_48_msg db "Link number out of range"
-      _errno_48_len = $ - _errno_48_msg
-      _errno_49_msg db "Protocol driver not attached"
-      _errno_49_len = $ - _errno_49_msg
-      _errno_50_msg db "No CSI structure available"
-      _errno_50_len = $ - _errno_50_msg
-      _errno_51_msg db "Level 2 halted"
-      _errno_51_len = $ - _errno_51_msg
-      _errno_52_msg db "Invalid exchange"
-      _errno_52_len = $ - _errno_52_msg
-      _errno_53_msg db "Invalid request descriptor"
-      _errno_53_len = $ - _errno_53_msg
-      _errno_54_msg db "Exchange full"
-      _errno_54_len = $ - _errno_54_msg
-      _errno_55_msg db "No anode"
-      _errno_55_len = $ - _errno_55_msg
-      _errno_56_msg db "Invalid request code"
-      _errno_56_len = $ - _errno_56_msg
-      _errno_57_msg db "Invalid slot"
-      _errno_57_len = $ - _errno_57_msg
-      _errno_58_msg db "Unknown error 58"
-      _errno_58_len = $ - _errno_58_msg
-      _errno_59_msg db "Bad font file format"
-      _errno_59_len = $ - _errno_59_msg
-      _errno_60_msg db "Device not a stream"
-      _errno_60_len = $ - _errno_60_msg
-      _errno_61_msg db "No data available"
-      _errno_61_len = $ - _errno_61_msg
-      _errno_62_msg db "Timer expired"
-      _errno_62_len = $ - _errno_62_msg
-      _errno_63_msg db "Out of streams resources"
-      _errno_63_len = $ - _errno_63_msg
-      _errno_64_msg db "Machine is not on the network"
-      _errno_64_len = $ - _errno_64_msg
-      _errno_65_msg db "Package not installed"
-      _errno_65_len = $ - _errno_65_msg
-      _errno_66_msg db "Object is remote"
-      _errno_66_len = $ - _errno_66_msg
-      _errno_67_msg db "Link has been severed"
-      _errno_67_len = $ - _errno_67_msg
-      _errno_68_msg db "Advertise error"
-      _errno_68_len = $ - _errno_68_msg
-      _errno_69_msg db "Srmount error"
-      _errno_69_len = $ - _errno_69_msg
-      _errno_70_msg db "Communication error on send"
-      _errno_70_len = $ - _errno_70_msg
-      _errno_71_msg db "Protocol error"
-      _errno_71_len = $ - _errno_71_msg
-      _errno_72_msg db "Multihop attempted"
-      _errno_72_len = $ - _errno_72_msg
-      _errno_73_msg db "RFS specific error"
-      _errno_73_len = $ - _errno_73_msg
-      _errno_74_msg db "Bad message"
-      _errno_74_len = $ - _errno_74_msg
-      _errno_75_msg db "Value too large for defined data type"
-      _errno_75_len = $ - _errno_75_msg
-      _errno_76_msg db "Name not unique on network"
-      _errno_76_len = $ - _errno_76_msg
-      _errno_77_msg db "File descriptor in bad state"
-      _errno_77_len = $ - _errno_77_msg
-      _errno_78_msg db "Remote address changed"
-      _errno_78_len = $ - _errno_78_msg
-      _errno_79_msg db "Can not access a needed shared library"
-      _errno_79_len = $ - _errno_79_msg
-      _errno_80_msg db "Accessing a corrupted shared library"
-      _errno_80_len = $ - _errno_80_msg
-      _errno_81_msg db ".lib section in a.out corrupted"
-      _errno_81_len = $ - _errno_81_msg
-      _errno_82_msg db "Attempting to link in too many shared libraries"
-      _errno_82_len = $ - _errno_82_msg
-      _errno_83_msg db "Cannot exec a shared library directly"
-      _errno_83_len = $ - _errno_83_msg
-      _errno_84_msg db "Invalid or incomplete multibyte or wide character"
-      _errno_84_len = $ - _errno_84_msg
-      _errno_85_msg db "Interrupted system call should be restarted"
-      _errno_85_len = $ - _errno_85_msg
-      _errno_86_msg db "Streams pipe error"
-      _errno_86_len = $ - _errno_86_msg
-      _errno_87_msg db "Too many users"
-      _errno_87_len = $ - _errno_87_msg
-      _errno_88_msg db "Socket operation on non-socket"
-      _errno_88_len = $ - _errno_88_msg
-      _errno_89_msg db "Destination address required"
-      _errno_89_len = $ - _errno_89_msg
-      _errno_90_msg db "Message too long"
-      _errno_90_len = $ - _errno_90_msg
-      _errno_91_msg db "Protocol wrong type for socket"
-      _errno_91_len = $ - _errno_91_msg
-      _errno_92_msg db "Protocol not available"
-      _errno_92_len = $ - _errno_92_msg
-      _errno_93_msg db "Protocol not supported"
-      _errno_93_len = $ - _errno_93_msg
-      _errno_94_msg db "Socket type not supported"
-      _errno_94_len = $ - _errno_94_msg
-      _errno_95_msg db "Operation not supported"
-      _errno_95_len = $ - _errno_95_msg
-      _errno_96_msg db "Protocol family not supported"
-      _errno_96_len = $ - _errno_96_msg
-      _errno_97_msg db "Address family not supported by protocol"
-      _errno_97_len = $ - _errno_97_msg
-      _errno_98_msg db "Address already in use"
-      _errno_98_len = $ - _errno_98_msg
-      _errno_99_msg db "Cannot assign requested address"
-      _errno_99_len = $ - _errno_99_msg
-      _errno_100_msg db "Network is down"
-      _errno_100_len = $ - _errno_100_msg
-      _errno_101_msg db "Network is unreachable"
-      _errno_101_len = $ - _errno_101_msg
-      _errno_102_msg db "Network dropped connection on reset"
-      _errno_102_len = $ - _errno_102_msg
-      _errno_103_msg db "Software caused connection abort"
-      _errno_103_len = $ - _errno_103_msg
-      _errno_104_msg db "Connection reset by peer"
-      _errno_104_len = $ - _errno_104_msg
-      _errno_105_msg db "No buffer space available"
-      _errno_105_len = $ - _errno_105_msg
-      _errno_106_msg db "Transport endpoint is already connected"
-      _errno_106_len = $ - _errno_106_msg
-      _errno_107_msg db "Transport endpoint is not connected"
-      _errno_107_len = $ - _errno_107_msg
-      _errno_108_msg db "Cannot send after transport endpoint shutdown"
-      _errno_108_len = $ - _errno_108_msg
-      _errno_109_msg db "Too many references: cannot splice"
-      _errno_109_len = $ - _errno_109_msg
-      _errno_110_msg db "Connection timed out"
-      _errno_110_len = $ - _errno_110_msg
-      _errno_111_msg db "Connection refused"
-      _errno_111_len = $ - _errno_111_msg
-      _errno_112_msg db "Host is down"
-      _errno_112_len = $ - _errno_112_msg
-      _errno_113_msg db "No route to host"
-      _errno_113_len = $ - _errno_113_msg
-      _errno_114_msg db "Operation already in progress"
-      _errno_114_len = $ - _errno_114_msg
-      _errno_115_msg db "Operation now in progress"
-      _errno_115_len = $ - _errno_115_msg
-      _errno_116_msg db "Stale file handle"
-      _errno_116_len = $ - _errno_116_msg
-      _errno_117_msg db "Structure needs cleaning"
-      _errno_117_len = $ - _errno_117_msg
-      _errno_118_msg db "Not a XENIX named type file"
-      _errno_118_len = $ - _errno_118_msg
-      _errno_119_msg db "No XENIX semaphores available"
-      _errno_119_len = $ - _errno_119_msg
-      _errno_120_msg db "Is a named type file"
-      _errno_120_len = $ - _errno_120_msg
-      _errno_121_msg db "Remote I/O error"
-      _errno_121_len = $ - _errno_121_msg
-      _errno_122_msg db "Disk quota exceeded"
-      _errno_122_len = $ - _errno_122_msg
-      _errno_123_msg db "No medium found"
-      _errno_123_len = $ - _errno_123_msg
-      _errno_124_msg db "Wrong medium type"
-      _errno_124_len = $ - _errno_124_msg
-      _errno_125_msg db "Operation canceled"
-      _errno_125_len = $ - _errno_125_msg
-      _errno_126_msg db "Required key not available"
-      _errno_126_len = $ - _errno_126_msg
-      _errno_127_msg db "Key has expired"
-      _errno_127_len = $ - _errno_127_msg
-      _errno_128_msg db "Key has been revoked"
-      _errno_128_len = $ - _errno_128_msg
-      _errno_129_msg db "Key was rejected by service"
-      _errno_129_len = $ - _errno_129_msg
-      _errno_130_msg db "Owner died"
-      _errno_130_len = $ - _errno_130_msg
-      _errno_131_msg db "State not recoverable"
-      _errno_131_len = $ - _errno_131_msg
-      _errno_132_msg db "Operation not possible due to RF-kill"
-      _errno_132_len = $ - _errno_132_msg
-      _errno_133_msg db "Memory page has hardware error"
-      _errno_133_len = $ - _errno_133_msg
+      db "Success", 0
+      db "Operation not permitted", 0
+      db "No such file or directory", 0
+      db "No such process", 0
+      db "Interrupted system call", 0
+      db "Input/output error", 0
+      db "No such device or address", 0
+      db "Argument list too long", 0
+      db "Exec format error", 0
+      db "Bad file descriptor", 0
+      db "No child processes", 0
+      db "Resource temporarily unavailable", 0
+      db "Cannot allocate memory", 0
+      db "Permission denied", 0
+      db "Bad address", 0
+      db "Block device required", 0
+      db "Device or resource busy", 0
+      db "File exists", 0
+      db "Invalid cross-device link", 0
+      db "No such device", 0
+      db "Not a directory", 0
+      db "Is a directory", 0
+      db "Invalid argument", 0
+      db "Too many open files in system", 0
+      db "Too many open files", 0
+      db "Inappropriate ioctl for device", 0
+      db "Text file busy", 0
+      db "File too large", 0
+      db "No space left on device", 0
+      db "Illegal seek", 0
+      db "Read-only file system", 0
+      db "Too many links", 0
+      db "Broken pipe", 0
+      db "Numerical argument out of domain", 0
+      db "Numerical result out of range", 0
+      db "Resource deadlock avoided", 0
+      db "File name too long", 0
+      db "No locks available", 0
+      db "Function not implemented", 0
+      db "Directory not empty", 0
+      db "Too many levels of symbolic links", 0
+      db "Unknown error 41", 0
+      db "No message of desired type", 0
+      db "Identifier removed", 0
+      db "Channel number out of range", 0
+      db "Level 2 not synchronized", 0
+      db "Level 3 halted", 0
+      db "Level 3 reset", 0
+      db "Link number out of range", 0
+      db "Protocol driver not attached", 0
+      db "No CSI structure available", 0
+      db "Level 2 halted", 0
+      db "Invalid exchange", 0
+      db "Invalid request descriptor", 0
+      db "Exchange full", 0
+      db "No anode", 0
+      db "Invalid request code", 0
+      db "Invalid slot", 0
+      db "Unknown error 58", 0
+      db "Bad font file format", 0
+      db "Device not a stream", 0
+      db "No data available", 0
+      db "Timer expired", 0
+      db "Out of streams resources", 0
+      db "Machine is not on the network", 0
+      db "Package not installed", 0
+      db "Object is remote", 0
+      db "Link has been severed", 0
+      db "Advertise error", 0
+      db "Srmount error", 0
+      db "Communication error on send", 0
+      db "Protocol error", 0
+      db "Multihop attempted", 0
+      db "RFS specific error", 0
+      db "Bad message", 0
+      db "Value too large for defined data type", 0
+      db "Name not unique on network", 0
+      db "File descriptor in bad state", 0
+      db "Remote address changed", 0
+      db "Can not access a needed shared library", 0
+      db "Accessing a corrupted shared library", 0
+      db ".lib section in a.out corrupted", 0
+      db "Attempting to link in too many shared libraries", 0
+      db "Cannot exec a shared library directly", 0
+      db "Invalid or incomplete multibyte or wide character", 0
+      db "Interrupted system call should be restarted", 0
+      db "Streams pipe error", 0
+      db "Too many users", 0
+      db "Socket operation on non-socket", 0
+      db "Destination address required", 0
+      db "Message too long", 0
+      db "Protocol wrong type for socket", 0
+      db "Protocol not available", 0
+      db "Protocol not supported", 0
+      db "Socket type not supported", 0
+      db "Operation not supported", 0
+      db "Protocol family not supported", 0
+      db "Address family not supported by protocol", 0
+      db "Address already in use", 0
+      db "Cannot assign requested address", 0
+      db "Network is down", 0
+      db "Network is unreachable", 0
+      db "Network dropped connection on reset", 0
+      db "Software caused connection abort", 0
+      db "Connection reset by peer", 0
+      db "No buffer space available", 0
+      db "Transport endpoint is already connected", 0
+      db "Transport endpoint is not connected", 0
+      db "Cannot send after transport endpoint shutdown", 0
+      db "Too many references: cannot splice", 0
+      db "Connection timed out", 0
+      db "Connection refused", 0
+      db "Host is down", 0
+      db "No route to host", 0
+      db "Operation already in progress", 0
+      db "Operation now in progress", 0
+      db "Stale file handle", 0
+      db "Structure needs cleaning", 0
+      db "Not a XENIX named type file", 0
+      db "No XENIX semaphores available", 0
+      db "Is a named type file", 0
+      db "Remote I/O error", 0
+      db "Disk quota exceeded", 0
+      db "No medium found", 0
+      db "Wrong medium type", 0
+      db "Operation canceled", 0
+      db "Required key not available", 0
+      db "Key has expired", 0
+      db "Key has been revoked", 0
+      db "Key was rejected by service", 0
+      db "Owner died", 0
+      db "State not recoverable", 0
+      db "Operation not possible due to RF-kill", 0
+      db "Memory page has hardware error", 0
 
     else
 
-      _errno_0_msg db "SUCCESS"
-      _errno_0_len = $ - _errno_0_msg
-      _errno_1_msg db "EPERM"
-      _errno_1_len = $ - _errno_1_msg
-      _errno_2_msg db "ENOENT"
-      _errno_2_len = $ - _errno_2_msg
-      _errno_3_msg db "ESRCH"
-      _errno_3_len = $ - _errno_3_msg
-      _errno_4_msg db "EINTR"
-      _errno_4_len = $ - _errno_4_msg
-      _errno_5_msg db "EIO"
-      _errno_5_len = $ - _errno_5_msg
-      _errno_6_msg db "ENXIO"
-      _errno_6_len = $ - _errno_6_msg
-      _errno_7_msg db "E2BIG"
-      _errno_7_len = $ - _errno_7_msg
-      _errno_8_msg db "ENOEXEC"
-      _errno_8_len = $ - _errno_8_msg
-      _errno_9_msg db "EBADF"
-      _errno_9_len = $ - _errno_9_msg
-      _errno_10_msg db "ECHILD"
-      _errno_10_len = $ - _errno_10_msg
-      _errno_11_msg db "EAGAIN"
-      _errno_11_len = $ - _errno_11_msg
-      _errno_12_msg db "ENOMEM"
-      _errno_12_len = $ - _errno_12_msg
-      _errno_13_msg db "EACCES"
-      _errno_13_len = $ - _errno_13_msg
-      _errno_14_msg db "EFAULT"
-      _errno_14_len = $ - _errno_14_msg
-      _errno_15_msg db "ENOTBLK"
-      _errno_15_len = $ - _errno_15_msg
-      _errno_16_msg db "EBUSY"
-      _errno_16_len = $ - _errno_16_msg
-      _errno_17_msg db "EEXIST"
-      _errno_17_len = $ - _errno_17_msg
-      _errno_18_msg db "EXDEV"
-      _errno_18_len = $ - _errno_18_msg
-      _errno_19_msg db "ENODEV"
-      _errno_19_len = $ - _errno_19_msg
-      _errno_20_msg db "ENOTDIR"
-      _errno_20_len = $ - _errno_20_msg
-      _errno_21_msg db "EISDIR"
-      _errno_21_len = $ - _errno_21_msg
-      _errno_22_msg db "EINVAL"
-      _errno_22_len = $ - _errno_22_msg
-      _errno_23_msg db "ENFILE"
-      _errno_23_len = $ - _errno_23_msg
-      _errno_24_msg db "EMFILE"
-      _errno_24_len = $ - _errno_24_msg
-      _errno_25_msg db "ENOTTY"
-      _errno_25_len = $ - _errno_25_msg
-      _errno_26_msg db "ETXTBSY"
-      _errno_26_len = $ - _errno_26_msg
-      _errno_27_msg db "EFBIG"
-      _errno_27_len = $ - _errno_27_msg
-      _errno_28_msg db "ENOSPC"
-      _errno_28_len = $ - _errno_28_msg
-      _errno_29_msg db "ESPIPE"
-      _errno_29_len = $ - _errno_29_msg
-      _errno_30_msg db "EROFS"
-      _errno_30_len = $ - _errno_30_msg
-      _errno_31_msg db "EMLINK"
-      _errno_31_len = $ - _errno_31_msg
-      _errno_32_msg db "EPIPE"
-      _errno_32_len = $ - _errno_32_msg
-      _errno_33_msg db "EDOM"
-      _errno_33_len = $ - _errno_33_msg
-      _errno_34_msg db "ERANGE"
-      _errno_34_len = $ - _errno_34_msg
-      _errno_35_msg db "EDEADLK"
-      _errno_35_len = $ - _errno_35_msg
-      _errno_36_msg db "ENAMETOOLONG"
-      _errno_36_len = $ - _errno_36_msg
-      _errno_37_msg db "ENOLCK"
-      _errno_37_len = $ - _errno_37_msg
-      _errno_38_msg db "ENOSYS"
-      _errno_38_len = $ - _errno_38_msg
-      _errno_39_msg db "ENOTEMPTY"
-      _errno_39_len = $ - _errno_39_msg
-      _errno_40_msg db "ELOOP"
-      _errno_40_len = $ - _errno_40_msg
-      _errno_41_msg db "UNKNOWN"
-      _errno_41_len = $ - _errno_41_msg
-      _errno_42_msg db "ENOMSG"
-      _errno_42_len = $ - _errno_42_msg
-      _errno_43_msg db "EIDRM"
-      _errno_43_len = $ - _errno_43_msg
-      _errno_44_msg db "ECHRNG"
-      _errno_44_len = $ - _errno_44_msg
-      _errno_45_msg db "EL2NSYNC"
-      _errno_45_len = $ - _errno_45_msg
-      _errno_46_msg db "EL3HLT"
-      _errno_46_len = $ - _errno_46_msg
-      _errno_47_msg db "EL3RST"
-      _errno_47_len = $ - _errno_47_msg
-      _errno_48_msg db "ELNRNG"
-      _errno_48_len = $ - _errno_48_msg
-      _errno_49_msg db "EUNATCH"
-      _errno_49_len = $ - _errno_49_msg
-      _errno_50_msg db "ENOCSI"
-      _errno_50_len = $ - _errno_50_msg
-      _errno_51_msg db "EL2HLT"
-      _errno_51_len = $ - _errno_51_msg
-      _errno_52_msg db "EBADE"
-      _errno_52_len = $ - _errno_52_msg
-      _errno_53_msg db "EBADR"
-      _errno_53_len = $ - _errno_53_msg
-      _errno_54_msg db "EXFULL"
-      _errno_54_len = $ - _errno_54_msg
-      _errno_55_msg db "ENOANO"
-      _errno_55_len = $ - _errno_55_msg
-      _errno_56_msg db "EBADRQC"
-      _errno_56_len = $ - _errno_56_msg
-      _errno_57_msg db "EBADSLT"
-      _errno_57_len = $ - _errno_57_msg
-      _errno_58_msg db "UNKNOWN"
-      _errno_58_len = $ - _errno_58_msg
-      _errno_59_msg db "EBFONT"
-      _errno_59_len = $ - _errno_59_msg
-      _errno_60_msg db "ENOSTR"
-      _errno_60_len = $ - _errno_60_msg
-      _errno_61_msg db "ENODATA"
-      _errno_61_len = $ - _errno_61_msg
-      _errno_62_msg db "ETIME"
-      _errno_62_len = $ - _errno_62_msg
-      _errno_63_msg db "ENOSR"
-      _errno_63_len = $ - _errno_63_msg
-      _errno_64_msg db "ENONET"
-      _errno_64_len = $ - _errno_64_msg
-      _errno_65_msg db "ENOPKG"
-      _errno_65_len = $ - _errno_65_msg
-      _errno_66_msg db "EREMOTE"
-      _errno_66_len = $ - _errno_66_msg
-      _errno_67_msg db "ENOLINK"
-      _errno_67_len = $ - _errno_67_msg
-      _errno_68_msg db "EADV"
-      _errno_68_len = $ - _errno_68_msg
-      _errno_69_msg db "ESRMNT"
-      _errno_69_len = $ - _errno_69_msg
-      _errno_70_msg db "ECOMM"
-      _errno_70_len = $ - _errno_70_msg
-      _errno_71_msg db "EPROTO"
-      _errno_71_len = $ - _errno_71_msg
-      _errno_72_msg db "EMULTIHOP"
-      _errno_72_len = $ - _errno_72_msg
-      _errno_73_msg db "EDOTDOT"
-      _errno_73_len = $ - _errno_73_msg
-      _errno_74_msg db "EBADMSG"
-      _errno_74_len = $ - _errno_74_msg
-      _errno_75_msg db "EOVERFLOW"
-      _errno_75_len = $ - _errno_75_msg
-      _errno_76_msg db "ENOTUNIQ"
-      _errno_76_len = $ - _errno_76_msg
-      _errno_77_msg db "EBADFD"
-      _errno_77_len = $ - _errno_77_msg
-      _errno_78_msg db "EREMCHG"
-      _errno_78_len = $ - _errno_78_msg
-      _errno_79_msg db "ELIBACC"
-      _errno_79_len = $ - _errno_79_msg
-      _errno_80_msg db "ELIBBAD"
-      _errno_80_len = $ - _errno_80_msg
-      _errno_81_msg db "ELIBSCN"
-      _errno_81_len = $ - _errno_81_msg
-      _errno_82_msg db "ELIBMAX"
-      _errno_82_len = $ - _errno_82_msg
-      _errno_83_msg db "ELIBEXEC"
-      _errno_83_len = $ - _errno_83_msg
-      _errno_84_msg db "EILSEQ"
-      _errno_84_len = $ - _errno_84_msg
-      _errno_85_msg db "ERESTART"
-      _errno_85_len = $ - _errno_85_msg
-      _errno_86_msg db "ESTRPIPE"
-      _errno_86_len = $ - _errno_86_msg
-      _errno_87_msg db "EUSERS"
-      _errno_87_len = $ - _errno_87_msg
-      _errno_88_msg db "ENOTSOCK"
-      _errno_88_len = $ - _errno_88_msg
-      _errno_89_msg db "EDESTADDRREQ"
-      _errno_89_len = $ - _errno_89_msg
-      _errno_90_msg db "EMSGSIZE"
-      _errno_90_len = $ - _errno_90_msg
-      _errno_91_msg db "EPROTOTYPE"
-      _errno_91_len = $ - _errno_91_msg
-      _errno_92_msg db "ENOPROTOOPT"
-      _errno_92_len = $ - _errno_92_msg
-      _errno_93_msg db "EPROTONOSUPPORT"
-      _errno_93_len = $ - _errno_93_msg
-      _errno_94_msg db "ESOCKTNOSUPPORT"
-      _errno_94_len = $ - _errno_94_msg
-      _errno_95_msg db "EOPNOTSUPP"
-      _errno_95_len = $ - _errno_95_msg
-      _errno_96_msg db "EPFNOSUPPORT"
-      _errno_96_len = $ - _errno_96_msg
-      _errno_97_msg db "EAFNOSUPPORT"
-      _errno_97_len = $ - _errno_97_msg
-      _errno_98_msg db "EADDRINUSE"
-      _errno_98_len = $ - _errno_98_msg
-      _errno_99_msg db "EADDRNOTAVAIL"
-      _errno_99_len = $ - _errno_99_msg
-      _errno_100_msg db "ENETDOWN"
-      _errno_100_len = $ - _errno_100_msg
-      _errno_101_msg db "ENETUNREACH"
-      _errno_101_len = $ - _errno_101_msg
-      _errno_102_msg db "ENETRESET"
-      _errno_102_len = $ - _errno_102_msg
-      _errno_103_msg db "ECONNABORTED"
-      _errno_103_len = $ - _errno_103_msg
-      _errno_104_msg db "ECONNRESET"
-      _errno_104_len = $ - _errno_104_msg
-      _errno_105_msg db "ENOBUFS"
-      _errno_105_len = $ - _errno_105_msg
-      _errno_106_msg db "EISCONN"
-      _errno_106_len = $ - _errno_106_msg
-      _errno_107_msg db "ENOTCONN"
-      _errno_107_len = $ - _errno_107_msg
-      _errno_108_msg db "ESHUTDOWN"
-      _errno_108_len = $ - _errno_108_msg
-      _errno_109_msg db "ETOOMANYREFS"
-      _errno_109_len = $ - _errno_109_msg
-      _errno_110_msg db "ETIMEDOUT"
-      _errno_110_len = $ - _errno_110_msg
-      _errno_111_msg db "ECONNREFUSED"
-      _errno_111_len = $ - _errno_111_msg
-      _errno_112_msg db "EHOSTDOWN"
-      _errno_112_len = $ - _errno_112_msg
-      _errno_113_msg db "EHOSTUNREACH"
-      _errno_113_len = $ - _errno_113_msg
-      _errno_114_msg db "EALREADY"
-      _errno_114_len = $ - _errno_114_msg
-      _errno_115_msg db "EINPROGRESS"
-      _errno_115_len = $ - _errno_115_msg
-      _errno_116_msg db "ESTALE"
-      _errno_116_len = $ - _errno_116_msg
-      _errno_117_msg db "EUCLEAN"
-      _errno_117_len = $ - _errno_117_msg
-      _errno_118_msg db "ENOTNAM"
-      _errno_118_len = $ - _errno_118_msg
-      _errno_119_msg db "ENAVAIL"
-      _errno_119_len = $ - _errno_119_msg
-      _errno_120_msg db "EISNAM"
-      _errno_120_len = $ - _errno_120_msg
-      _errno_121_msg db "EREMOTEIO"
-      _errno_121_len = $ - _errno_121_msg
-      _errno_122_msg db "EDQUOT"
-      _errno_122_len = $ - _errno_122_msg
-      _errno_123_msg db "ENOMEDIUM"
-      _errno_123_len = $ - _errno_123_msg
-      _errno_124_msg db "EMEDIUMTYPE"
-      _errno_124_len = $ - _errno_124_msg
-      _errno_125_msg db "ECANCELED"
-      _errno_125_len = $ - _errno_125_msg
-      _errno_126_msg db "ENOKEY"
-      _errno_126_len = $ - _errno_126_msg
-      _errno_127_msg db "EKEYEXPIRED"
-      _errno_127_len = $ - _errno_127_msg
-      _errno_128_msg db "EKEYREVOKED"
-      _errno_128_len = $ - _errno_128_msg
-      _errno_129_msg db "EKEYREJECTED"
-      _errno_129_len = $ - _errno_129_msg
-      _errno_130_msg db "EOWNERDEAD"
-      _errno_130_len = $ - _errno_130_msg
-      _errno_131_msg db "ENOTRECOVERABLE"
-      _errno_131_len = $ - _errno_131_msg
-      _errno_132_msg db "ERFKILL"
-      _errno_132_len = $ - _errno_132_msg
-      _errno_133_msg db "EHWPOISON"
-      _errno_133_len = $ - _errno_133_msg
+      db "SUCCESS", 0
+      db "EPERM", 0
+      db "ENOENT", 0
+      db "ESRCH", 0
+      db "EINTR", 0
+      db "EIO", 0
+      db "ENXIO", 0
+      db "E2BIG", 0
+      db "ENOEXEC", 0
+      db "EBADF", 0
+      db "ECHILD", 0
+      db "EAGAIN", 0
+      db "ENOMEM", 0
+      db "EACCES", 0
+      db "EFAULT", 0
+      db "ENOTBLK", 0
+      db "EBUSY", 0
+      db "EEXIST", 0
+      db "EXDEV", 0
+      db "ENODEV", 0
+      db "ENOTDIR", 0
+      db "EISDIR", 0
+      db "EINVAL", 0
+      db "ENFILE", 0
+      db "EMFILE", 0
+      db "ENOTTY", 0
+      db "ETXTBSY", 0
+      db "EFBIG", 0
+      db "ENOSPC", 0
+      db "ESPIPE", 0
+      db "EROFS", 0
+      db "EMLINK", 0
+      db "EPIPE", 0
+      db "EDOM", 0
+      db "ERANGE", 0
+      db "EDEADLK", 0
+      db "ENAMETOOLONG", 0
+      db "ENOLCK", 0
+      db "ENOSYS", 0
+      db "ENOTEMPTY", 0
+      db "ELOOP", 0
+      db "UNKNOWN", 0
+      db "ENOMSG", 0
+      db "EIDRM", 0
+      db "ECHRNG", 0
+      db "EL2NSYNC", 0
+      db "EL3HLT", 0
+      db "EL3RST", 0
+      db "ELNRNG", 0
+      db "EUNATCH", 0
+      db "ENOCSI", 0
+      db "EL2HLT", 0
+      db "EBADE", 0
+      db "EBADR", 0
+      db "EXFULL", 0
+      db "ENOANO", 0
+      db "EBADRQC", 0
+      db "EBADSLT", 0
+      db "UNKNOWN", 0
+      db "EBFONT", 0
+      db "ENOSTR", 0
+      db "ENODATA", 0
+      db "ETIME", 0
+      db "ENOSR", 0
+      db "ENONET", 0
+      db "ENOPKG", 0
+      db "EREMOTE", 0
+      db "ENOLINK", 0
+      db "EADV", 0
+      db "ESRMNT", 0
+      db "ECOMM", 0
+      db "EPROTO", 0
+      db "EMULTIHOP", 0
+      db "EDOTDOT", 0
+      db "EBADMSG", 0
+      db "EOVERFLOW", 0
+      db "ENOTUNIQ", 0
+      db "EBADFD", 0
+      db "EREMCHG", 0
+      db "ELIBACC", 0
+      db "ELIBBAD", 0
+      db "ELIBSCN", 0
+      db "ELIBMAX", 0
+      db "ELIBEXEC", 0
+      db "EILSEQ", 0
+      db "ERESTART", 0
+      db "ESTRPIPE", 0
+      db "EUSERS", 0
+      db "ENOTSOCK", 0
+      db "EDESTADDRREQ", 0
+      db "EMSGSIZE", 0
+      db "EPROTOTYPE", 0
+      db "ENOPROTOOPT", 0
+      db "EPROTONOSUPPORT", 0
+      db "ESOCKTNOSUPPORT", 0
+      db "EOPNOTSUPP", 0
+      db "EPFNOSUPPORT", 0
+      db "EAFNOSUPPORT", 0
+      db "EADDRINUSE", 0
+      db "EADDRNOTAVAIL", 0
+      db "ENETDOWN", 0
+      db "ENETUNREACH", 0
+      db "ENETRESET", 0
+      db "ECONNABORTED", 0
+      db "ECONNRESET", 0
+      db "ENOBUFS", 0
+      db "EISCONN", 0
+      db "ENOTCONN", 0
+      db "ESHUTDOWN", 0
+      db "ETOOMANYREFS", 0
+      db "ETIMEDOUT", 0
+      db "ECONNREFUSED", 0
+      db "EHOSTDOWN", 0
+      db "EHOSTUNREACH", 0
+      db "EALREADY", 0
+      db "EINPROGRESS", 0
+      db "ESTALE", 0
+      db "EUCLEAN", 0
+      db "ENOTNAM", 0
+      db "ENAVAIL", 0
+      db "EISNAM", 0
+      db "EREMOTEIO", 0
+      db "EDQUOT", 0
+      db "ENOMEDIUM", 0
+      db "EMEDIUMTYPE", 0
+      db "ECANCELED", 0
+      db "ENOKEY", 0
+      db "EKEYEXPIRED", 0
+      db "EKEYREVOKED", 0
+      db "EKEYREJECTED", 0
+      db "EOWNERDEAD", 0
+      db "ENOTRECOVERABLE", 0
+      db "ERFKILL", 0
+      db "EHWPOISON", 0
 
     end if
-
-end if
-
-if used _errno_table_len
-
-  segment readable
-
-    _errno_table_len db _errno_0_len, _errno_1_len, _errno_2_len, _errno_3_len, _errno_4_len, _errno_5_len, _errno_6_len, _errno_7_len, _errno_8_len, _errno_9_len, _errno_10_len, _errno_11_len, _errno_12_len, _errno_13_len, _errno_14_len, _errno_15_len, _errno_16_len, _errno_17_len, _errno_18_len, _errno_19_len, _errno_20_len, _errno_21_len, _errno_22_len, _errno_23_len, _errno_24_len, _errno_25_len, _errno_26_len, _errno_27_len, _errno_28_len, _errno_29_len, _errno_30_len, _errno_31_len, _errno_32_len, _errno_33_len, _errno_34_len, _errno_35_len, _errno_36_len, _errno_37_len, _errno_38_len, _errno_39_len, _errno_40_len, _errno_41_len, _errno_42_len, _errno_43_len, _errno_44_len, _errno_45_len, _errno_46_len, _errno_47_len, _errno_48_len, _errno_49_len, _errno_50_len, _errno_51_len, _errno_52_len, _errno_53_len, _errno_54_len, _errno_55_len, _errno_56_len, _errno_57_len, _errno_58_len, _errno_59_len, _errno_60_len, _errno_61_len, _errno_62_len, _errno_63_len, _errno_64_len, _errno_65_len, _errno_66_len, _errno_67_len, _errno_68_len, _errno_69_len, _errno_70_len, _errno_71_len, _errno_72_len, _errno_73_len, _errno_74_len, _errno_75_len, _errno_76_len, _errno_77_len, _errno_78_len, _errno_79_len, _errno_80_len, _errno_81_len, _errno_82_len, _errno_83_len, _errno_84_len, _errno_85_len, _errno_86_len, _errno_87_len, _errno_88_len, _errno_89_len, _errno_90_len, _errno_91_len, _errno_92_len, _errno_93_len, _errno_94_len, _errno_95_len, _errno_96_len, _errno_97_len, _errno_98_len, _errno_99_len, _errno_100_len, _errno_101_len, _errno_102_len, _errno_103_len, _errno_104_len, _errno_105_len, _errno_106_len, _errno_107_len, _errno_108_len, _errno_109_len, _errno_110_len, _errno_111_len, _errno_112_len, _errno_113_len, _errno_114_len, _errno_115_len, _errno_116_len, _errno_117_len, _errno_118_len, _errno_119_len, _errno_120_len, _errno_121_len, _errno_122_len, _errno_123_len, _errno_124_len, _errno_125_len, _errno_126_len, _errno_127_len, _errno_128_len, _errno_129_len, _errno_130_len, _errno_131_len, _errno_132_len, _errno_133_len
 
 end if
 

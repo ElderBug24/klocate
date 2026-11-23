@@ -786,11 +786,32 @@ segment readable executable
       if ~ defined _strip_errno | _strip_errno < 2
 
         not rax
+        lea rbx, [rax + 1]
 
-        mov esi, dword [_errno_table_msg + 4 * rax + 4]
-        movzx edx, byte [_errno_table_len + rax + 1]
-        mov eax, __NR_write
-        mov edi, STDERR_FILENO
+        xor eax, eax
+        mov rdi, _errno_table
+
+        cld
+
+        .loop:
+
+          xor ecx, ecx
+          dec rcx
+          repne scasb
+
+          dec rbx
+          jns .loop
+
+        not rcx
+        dec rcx
+
+        mov rsi, rdi
+        sub rsi, rcx
+        dec rsi
+
+        mov eax, 1
+        mov edi, 2
+        mov rdx, rcx
         syscall
 
         mov eax, __NR_write
