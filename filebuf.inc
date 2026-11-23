@@ -6,8 +6,6 @@
 
 _filebuf_nocheck_buffer_size equ 64
 
-; TODO: parallelize writes
-
 ; rsi : source
 ; rcx : count
 ; r15 : id * 32

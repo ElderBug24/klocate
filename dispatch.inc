@@ -81,7 +81,7 @@ macro dispatch_worker_idle reg_task, reg_id, threads_count_ptr, thread_last_labe
 }
 
 ; reg_task : 64 bit register containing task to dispatch
-; reg_id   : 64 bit register containing id
+; reg_id   : 64 bit register, will contain id
 ; destroys : rax, rcx, rdx, rsi, rdi, r8, r9, r11, reg_task (containing result of dispatch), reg_id (containing worker id if dispatched)
 macro dispatch_try_dispatch reg_out, reg_id, reg_off, reg_task {
 

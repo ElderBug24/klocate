@@ -19,9 +19,9 @@ pipe_buf              equ pagesize
 max_threads           equ 64
 default_threads_count equ 4
 thread_stack_size_exp equ 24
-thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * pagesize = 4Mib)
+thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * pagesize) = 4Mib
 scratch_size_exp      equ 8
-scratch_size          equ (1 shl scratch_size_exp)
+scratch_size          equ (1 shl scratch_size_exp) ; 256 bytes
 ring_entries          equ 1024
 ring_thread_idle_ms   equ 2000
 
@@ -249,7 +249,7 @@ segment readable executable
 
       mov eax, __NR_futex
       mov rdi, dispatch_count
-      mov esi, (FUTEX_WAIT or FUTEX_PRIVATE_FLAG)
+      mov esi, FUTEX_WAIT ; FUTEX_PRIVATE_FLAG
       mov r10, timeout
       xor r8, r8
       xor r9, r9
@@ -687,7 +687,7 @@ segment readable executable
     push .end
 
     mov r12, qword [out_db_fd]
-    ; TODO: buffer output (careful: size might be bigger than buffer)
+    ; TODO: buffer output (careful: size might be bigger than buffer), using all of the buffers as a singular bigger one
 
     ; r15 : tmpfile index * 32
     .rec:
@@ -1088,9 +1088,15 @@ segment readable executable
         ja .on_openat_err
 
         mov r10, rax
+
+        cmp qword [dispatch_count], 0
+        je .skip_dispatch
+
         dispatch_try_dispatch rax, rbx, r8, r10
         test rax, rax
         jnz .dispatch
+
+        .skip_dispatch:
 
         push r12
         push r13
@@ -1139,7 +1145,7 @@ segment readable executable
       mov rdx, r15
       shl rdx, (scratch_size_exp - 5)
       add rdx, scratch
-      mov r10, AT_SYMLINK_NOFOLLOW
+      mov r10d, AT_SYMLINK_NOFOLLOW
       syscall
 
       mov rcx, rbx

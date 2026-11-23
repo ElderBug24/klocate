@@ -31,7 +31,7 @@ segment readable executable
 
     mov r8, qword [rsp]
 
-    mov r12, (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_path)
+    mov r12d, (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_path)
 
     mov eax, __NR_ioctl
     mov edi, STDIN_FILENO
@@ -120,7 +120,7 @@ segment readable executable
     xor edi, edi
     mov rsi, r13
     mov edx, (PROT_READ or PROT_WRITE)
-    mov r10, (MAP_PRIVATE or MAP_POPULATE)
+    mov r10d, (MAP_PRIVATE or MAP_POPULATE)
     mov r8, r12
     xor r9, r9
     syscall
@@ -148,7 +148,7 @@ segment readable executable
       xor edi, edi
       mov esi, initial_nonreg_buffer_size
       mov edx, (PROT_READ or PROT_WRITE)
-      mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
+      mov r10d, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
       mov r8, -1
       xor r9, r9
       syscall
@@ -195,7 +195,7 @@ segment readable executable
         mov rsi, r14
         shl r14, 1
         mov rdx, r14
-        mov r10, MREMAP_MAYMOVE
+        mov r10d, MREMAP_MAYMOVE
         syscall
 
         cmp rax, -4096
@@ -310,7 +310,7 @@ segment readable executable
       xor edi, edi
       mov esi, (filebuf_size + list_mode_buffer_size)
       mov edx, (PROT_READ or PROT_WRITE)
-      mov r10, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
+      mov r10d, (MAP_PRIVATE or MAP_ANONYMOUS or MAP_UNINITIALIZED)
       mov r8, -1
       xor r9, r9
       syscall
