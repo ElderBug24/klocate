@@ -76,6 +76,34 @@ segment readable executable
 
     .args_parsing_end:
 
+    mov rax, [rsp]
+
+    lea r8, [rsp + 8 * rax + 16]
+
+    .env_loop:
+
+      mov rbx, qword [r8]
+      test rbx, rbx
+      jz .env_loop_end
+
+      mov rsi, rbx
+      mov rdi, env_klocate_db_path_id
+      mov rcx, env_klocate_db_path_id_len
+      repe cmpsb
+
+      jne .env_loop_not_equal
+
+      mov qword [path_in_db], rsi
+
+      jmp .env_loop_end
+
+      .env_loop_not_equal:
+
+      add r8, 8
+      jmp .env_loop
+
+    .env_loop_end:
+
     mov qword [features], r12
 
     mov eax, STDIN_FILENO
@@ -695,6 +723,9 @@ segment readable
   default_path_in_db db "/var/lib/klocate/db", _char_nul
   label char_solidus byte at default_path_in_db
   path_stdin db "-", 0
+
+  env_klocate_db_path_id db "KLOCATE_DB_PATH="
+  env_klocate_db_path_id_len = $ - env_klocate_db_path_id
 
 segment readable writeable
 

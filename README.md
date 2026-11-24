@@ -28,8 +28,9 @@ It does not keep meta information about each file, neither does it update only t
 - add max directory recursion depth option
 - add option to ignore hidden files and folders
 - add option to filter certain directories that are irrelevant (`.git/`, build folders, ...)
-- properly parse command line arguments and environment variables
+- properly parse command line arguments
 ### `kl`:
+- parallelize list & query
 - add max directory recursion depth option
-- properly parse command line arguments and environment variables
+- properly parse command line arguments
 

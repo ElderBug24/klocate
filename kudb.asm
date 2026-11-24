@@ -76,7 +76,33 @@ segment readable executable
 
     .args_parsing_end:
 
-    ; TODO: parse environment variables
+    mov rax, [rsp]
+
+    lea r8, [rsp + 8 * rax + 16]
+
+    .env_loop:
+
+      mov rbx, qword [r8]
+      test rbx, rbx
+      jz .env_loop_end
+
+      mov rsi, rbx
+      mov rdi, env_klocate_db_path_id
+      mov rcx, env_klocate_db_path_id_len
+      repe cmpsb
+
+      jne .env_loop_not_equal
+
+      mov qword [path_out_db], rsi
+
+      jmp .env_loop_end
+
+      .env_loop_not_equal:
+
+      add r8, 8
+      jmp .env_loop
+
+    .env_loop_end:
 
     cmp qword [path_out_db], default_path_out_db
     jne .different_path_out
@@ -1282,6 +1308,9 @@ segment readable
     db _char_digit_zero
   end if
   char_nul db 2 dup _char_nul
+
+  env_klocate_db_path_id db "KLOCATE_DB_PATH="
+  env_klocate_db_path_id_len = $ - env_klocate_db_path_id
 
 segment readable writeable
 
