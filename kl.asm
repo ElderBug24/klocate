@@ -33,7 +33,7 @@ segment readable executable
 
     mov r8, qword [rsp]
 
-    mov r12d, (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_display_path)
+    mov r12d, (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_display_path or _feature_flag_cmp_path)
 
     mov eax, __NR_ioctl
     mov edi, STDIN_FILENO
@@ -310,11 +310,11 @@ segment readable executable
       mov rbp, rbx
 
       xor ebx, ebx
-      mov eax, _char_solidus
       mov rdi, r13
 
       .query_skip_dir_loop:
 
+        mov eax, _char_solidus
         xor ecx, ecx
         dec rcx
 
@@ -653,11 +653,11 @@ segment readable executable
         mov rbp, rbx
 
         xor ebx, ebx
-        mov eax, _char_solidus
         mov rdi, r13
 
         .skip_dir_loop:
 
+          mov eax, _char_solidus
           xor ecx, ecx
           dec rcx
 
