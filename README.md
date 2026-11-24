@@ -30,7 +30,6 @@ It does not keep meta information about each file, neither does it update only t
 - add option to filter certain directories that are irrelevant (`.git/`, build folders, ...)
 - properly parse command line arguments and environment variables
 ### `kl`:
-- implement query
 - add max directory recursion depth option
 - properly parse command line arguments and environment variables
 

@@ -11,10 +11,10 @@ include "dispatch.inc"
 
 _debug_tmpfile_name equ 1
 
-pagesize              equ 4096
-realpath_buf_size     equ (4 * pagesize)
-dents_buf_size        equ (2 * pagesize)
-filebuf_size          equ (8 * pagesize)
+pagesize              equ 4096           ; 4  Kib
+realpath_buf_size     equ (4 * pagesize) ; 16 Kib
+dents_buf_size        equ (2 * pagesize) ; 8  Kib
+filebuf_size          equ (8 * pagesize) ; 32 Kib
 pipe_buf              equ pagesize
 max_threads           equ 64
 default_threads_count equ 4
