@@ -1,7 +1,8 @@
 
-_offset_filebuf_ptr equ 0
-_offset_filebuf_len equ 8
-_offset_filebuf_fd  equ 16
+_offset_filebuf_ptr      equ 0
+_offset_filebuf_len      equ 8
+_offset_filebuf_fd       equ 16
+_offset_filebuf_capacity equ 24
 
 _offset_p_sq_entries  equ 0
 _offset_p_cq_entries  equ 4

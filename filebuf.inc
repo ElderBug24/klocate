@@ -16,24 +16,61 @@ macro filebuf_write cap {
 
   mov r8, rsi
   mov r9, rcx
+  mov r10, .back
 
   mov rdx, qword [filebufs + r15 + _offset_filebuf_len]
   lea rax, [rdx + rcx]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
-
-  mov r10, .back
 
   ja filebuf_flush_label
 
   .back:
 
   mov rdi, qword [filebufs + r15 + _offset_filebuf_ptr]
-  add rdi, qword [filebufs + r15 + _offset_filebuf_len]
+  add rdi, rdx
   mov rsi, r8
   mov rcx, r9
   rep movsb
 
   add qword [filebufs + r15 + _offset_filebuf_len], r9
+
+}
+
+; rsi : source
+; rcx : count
+; rdx : capacity
+; destroys: rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
+macro filebuf_write_big_capacity {
+
+  local .back, .end
+
+  mov r8, rsi
+  mov r9, rcx
+  mov r10, .end
+
+  cmp rcx, rdx
+  jae filebuf_flush_big_capacity
+
+  mov r10, .back
+
+  mov rdi, rdx
+  mov rdx, qword [filebufs + _offset_filebuf_len]
+  lea rax, [rdx + rcx]
+  cmp rax, rdi
+
+  ja filebuf_flush_label_global
+
+  .back:
+
+  mov rdi, qword [filebufs + _offset_filebuf_ptr]
+  add rdi, rdx
+  mov rsi, r8
+  mov rcx, r9
+  rep movsb
+
+  add qword [filebufs + _offset_filebuf_len], r9
+
+  .end:
 
 }
 
@@ -58,17 +95,18 @@ macro filebuf_write_1_char c, cap {
 
   local .back
 
+  mov r10, .back
+
   mov rdx, qword [filebufs + r15 + _offset_filebuf_len]
   lea rax, [rdx + 1]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
-  mov r10, .back
   ja filebuf_flush_label
 
   .back:
 
   mov rdi, qword [filebufs + r15 + _offset_filebuf_ptr]
-  add rdi, qword [filebufs + r15 + _offset_filebuf_len]
+  add rdi, rdx
   mov byte [rdi], c
 
   inc qword [filebufs + r15 + _offset_filebuf_len]
@@ -97,18 +135,18 @@ macro filebuf_write_m1_and_2_chars cs, cap {
 
   mov r8, rsi
   lea r9, [rcx - 1]
+  mov r10, .back
 
   mov rdx, qword [filebufs + r15 + _offset_filebuf_len]
   lea rax, [rdx + rcx + 2]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
-  mov r10, .back
   ja filebuf_flush_label
 
   .back:
 
   mov rdi, qword [filebufs + r15 + _offset_filebuf_ptr]
-  add rdi, qword [filebufs + r15 + _offset_filebuf_len]
+  add rdi, rdx
   mov rsi, r8
   mov rcx, r9
   rep movsb
@@ -125,17 +163,18 @@ macro filebuf_write_1_char_and_skip_n c, n, cap {
 
   local .back
 
+  mov r10, .back
+
   mov rdx, qword [filebufs + r15 + _offset_filebuf_len]
   lea rax, [rdx + (1 + n)]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
-  mov r10, .back
   ja filebuf_flush_label
 
   .back:
 
   mov rdi, qword [filebufs + r15 + _offset_filebuf_ptr]
-  add rdi, qword [filebufs + r15 + _offset_filebuf_len]
+  add rdi, rdx
   mov byte [rdi], c
 
   add qword [filebufs + r15 + _offset_filebuf_len], (1 + n)
@@ -162,18 +201,18 @@ macro filebuf_write_1_char_and_8 c, cap {
   local .back
 
   mov r9, rbx
+  mov r10, .back
 
   mov rdx, qword [filebufs + r15 + _offset_filebuf_len]
   lea rax, [rdx + 9]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
-  mov r10, .back
   ja filebuf_flush_label
 
   .back:
 
   mov rdi, qword [filebufs + r15 + _offset_filebuf_ptr]
-  add rdi, qword [filebufs + r15 + _offset_filebuf_len]
+  add rdi, rdx
   mov byte [rdi], c
   mov qword [rdi + 1], r9
 
@@ -191,18 +230,18 @@ macro filebuf_write_1_char_and_16_and_1_char_and_skip_16 c1, c2, cap {
 
   mov r8, rax
   mov r9, rbx
+  mov r10, .back
 
   mov rdx, qword [filebufs + r15 + _offset_filebuf_len]
   lea rax, [rdx + 34]
   cmp rax, (cap - _filebuf_nocheck_buffer_size)
 
-  mov r10, .back
   ja filebuf_flush_label
 
   .back:
 
   mov rdi, qword [filebufs + r15 + _offset_filebuf_ptr]
-  add rdi, qword [filebufs + r15 + _offset_filebuf_len]
+  add rdi, rdx
   mov byte [rdi], c1
   mov qword [rdi + 1], r8
   mov qword [rdi + 9], r9
@@ -242,6 +281,7 @@ macro filebuf_flush buffer {
     mov rsi, qword [buffer + _offset_filebuf_ptr]
     syscall
 
+    add rsi, rax
     sub rdx, rax
     jnz .loop
 
@@ -259,6 +299,60 @@ segment readable executable
     filebuf_flush_label:
 
       filebuf_flush (filebufs + r15)
+
+      xor edx, edx
+
+      jmp r10
+
+  end if
+
+  if used filebuf_flush_label_global
+
+    ; rdx : count
+    ; destroys : rax, rcx, rdx, rsi, rdi, r11
+    filebuf_flush_label_global:
+
+      filebuf_flush filebufs
+
+      xor edx, edx
+
+      jmp r10
+
+  end if
+
+  if used filebuf_flush_big_capacity
+
+    ; r8 : source
+    ; rcx : count
+    ; destroys: rax, rcx, rdx, rsi, rdi, r11
+    filebuf_flush_big_capacity:
+
+      mov rdx, qword [filebufs + _offset_filebuf_len]
+
+      .loop1:
+
+        mov eax, __NR_write
+        mov rdi, qword [filebufs + _offset_filebuf_fd]
+        mov rsi, qword [filebufs + _offset_filebuf_ptr]
+        syscall
+
+        add rsi, rax
+        sub rdx, rax
+        jnz .loop1
+
+      mov rdx, r9
+
+      .loop2:
+
+        mov eax, __NR_write
+        mov rsi, r8
+        syscall
+
+        add rsi, rax
+        sub rdx, rax
+        jnz .loop2
+
+      mov qword [filebufs + _offset_filebuf_len], 0
 
       jmp r10
 

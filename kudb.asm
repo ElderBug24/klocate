@@ -288,7 +288,7 @@ segment readable executable
       syscall
 
       .skip_mmap:
-      mov qword [filebufs + r15 + 24], rax
+      mov qword [tfoffsets + r15 + 24], rax
 
       sub r15, 32
       jns .flush_loop
@@ -357,7 +357,7 @@ segment readable executable
     .rec:
 
       add r13, 17
-      mov rsi, qword [filebufs + r15 + 24]
+      mov rsi, qword [tfoffsets + r15 + 24]
       add rsi, r13
 
       movzx eax, byte [rsi - 17]
@@ -687,13 +687,20 @@ segment readable executable
     push .end
 
     mov r12, qword [out_db_fd]
-    ; TODO: buffer output (careful: size might be bigger than buffer), using all of the buffers as a singular bigger one
+    imul rax, qword [threads_count], filebuf_size
+    mov qword [filebufs + _offset_filebuf_capacity], rax
+    mov qword [filebufs + _offset_filebuf_len], 0
+    mov qword [filebufs + _offset_filebuf_fd], r12
+    mov rax, qword [threads_count]
+    shl rax, 5
+    mov rax, qword [filebufs + rax - 32 + _offset_filebuf_ptr]
+    mov qword [filebufs + _offset_filebuf_ptr], rax
 
     ; r15 : tmpfile index * 32
     .rec:
 
       add r13, 17
-      mov r10, qword [filebufs + r15 + 24]
+      mov r10, qword [tfoffsets + r15 + 24]
       add r10, r13
 
       movzx eax, byte [r10 - 17]
@@ -703,18 +710,12 @@ segment readable executable
       je .dispatch
       ja .ret
 
-      .write_loop:
-
-        mov eax, __NR_write
-        mov rdi, r12
-        mov rsi, r10
-        mov rdx, rbx
-        syscall
-
-        add r13, rax
-        sub rbx, rax
-
-        jnz .write_loop
+      mov rsi, r10
+      mov rcx, rbx
+      mov rdx, qword [filebufs + _offset_filebuf_capacity]
+      add r13, rbx
+      filebuf_write_big_capacity
+      xor ebx, ebx
 
       jmp .rec
 
@@ -739,6 +740,9 @@ segment readable executable
         ret
 
     .end:
+
+      mov rdx, qword [filebufs + _offset_filebuf_len]
+      filebuf_flush filebufs
 
       mov eax, __NR_write
       mov rdi, r12
