@@ -52,7 +52,7 @@ segment readable executable
     jb .args_parsing_end
 
     mov rax, qword [rsp + 16]
-    mov qword [querry], rax
+    mov qword [query], rax
 
     mov rdi, rax
     xor eax, eax
@@ -60,7 +60,7 @@ segment readable executable
     repne scasb
     not rcx
     dec rcx
-    mov qword [querry_size], rcx
+    mov qword [query_size], rcx
 
     cmp r8, 3
     jb .args_parsing_end
@@ -135,7 +135,7 @@ segment readable executable
     test r15, r15
     jnz list
 
-    ; TODO: querry mode
+    ; TODO: query mode
 
     mov eax, __NR_exit_group
     mov edi, 1
@@ -505,8 +505,8 @@ segment readable
 
 segment readable writeable
 
-  querry      rq 1
-  querry_size rq 1
+  query      rq 1
+  query_size rq 1
   features    rq 1
   root_offset rq 1
   file_end    rq 1

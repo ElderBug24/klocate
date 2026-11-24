@@ -20,7 +20,7 @@ It does not keep meta information about each file, neither does it update only t
 ## Intended command line arguments interface (future)
 - `kudb` and `kudb [root]` will work
 - `kudb` will accept arguments to control the output database location, the amount of threads used and the visibility it has on hidden files
-- `kl` and `kl [querry]` will work
+- `kl` and `kl [query]` will work
 - `kl` will accept arguments to control the query mode (regular expression, scope: filename / on the whole path, ...), the input database location, the amount of threads used and certain filtering options
 - The `KLOCATE_DB_PATH` environment variable will be used to indicate (when present) the default location for the database)
 ## TODO
