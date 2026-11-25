@@ -1330,13 +1330,13 @@ segment readable writeable
     db 40 dup 0
     db 40 dup 0
 
-  ring_base   dq 0
-  sqes_base   dq 0
-  batch_count dd 0
-  retry_n     dd 0
-  retry_ud    dq 256 dup 0
-
   dispatch_declare max_threads
+
+  ring_base   rq 1
+  sqes_base   rq 1
+  batch_count rd 1
+  retry_n     rd 1
+  retry_ud    rq 256
 
   out_db_fd rq 1
   ring_fd   rq 1
