@@ -8,6 +8,7 @@ include "constants.inc"
 include "realpath.inc"
 include "filebuf.inc"
 include "dispatch.inc"
+include "klocate.inc"
 
 _debug_tmpfile_name equ 1
 
@@ -1299,8 +1300,8 @@ segment readable
   msg_err_too_many_threads_len = $ - msg_err_too_many_threads
 
   default_path_root_dir   db "/", _char_nul
-  default_path_out_db_dir db "/var/lib/klocate", _char_nul
-  default_path_out_db     db "/var/lib/klocate/db", _char_nul
+  default_path_out_db_dir db klocate_default_path_db_dir, _char_nul
+  default_path_out_db     db klocate_default_path_db, _char_nul
 
   tmpfile_debug_name db "tmpfile"
   tmpfile_debug_name_len = $ - tmpfile_debug_name
@@ -1309,7 +1310,7 @@ segment readable
   end if
   char_nul db 2 dup _char_nul
 
-  env_klocate_db_path_id db "KLOCATE_DB_PATH="
+  env_klocate_db_path_id db klocat_env_klocate_db_path_id, "="
   env_klocate_db_path_id_len = $ - env_klocate_db_path_id
 
 segment readable writeable

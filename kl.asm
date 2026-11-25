@@ -6,6 +6,7 @@ _strip_errno equ 0
 include "macros.inc"
 include "constants.inc"
 include "filebuf.inc"
+include "klocate.inc"
 
 pagesize                   equ 4096           ; 4  Kib
 filebuf_size               equ (8 * pagesize) ; 32 Kib
@@ -13,17 +14,21 @@ max_threads                equ 64
 list_mode_buffer_size      equ (8 * pagesize) ; 32 Kib
 initial_nonreg_buffer_size equ (4 * pagesize) ; 16 Kib
 
-_feature_bit_file          equ 0
-_feature_bit_dir           equ 1
-_feature_bit_hidden        equ 2
-_feature_bit_display_path  equ 3
-_feature_bit_cmp_path      equ 4
+_feature_bit_file          equ 8
+_feature_bit_dir           equ 9
+_feature_bit_hidden        equ 10
+_feature_bit_display_path  equ 11
+_feature_bit_cmp_path      equ 12
 _feature_flag_file         equ (1 shl _feature_bit_file        )
 _feature_flag_dir          equ (1 shl _feature_bit_dir         )
 _feature_flag_hidden       equ (1 shl _feature_bit_hidden      )
 _feature_flag_display_path equ (1 shl _feature_bit_display_path)
 _feature_flag_cmp_path     equ (1 shl _feature_bit_cmp_path    )
 _feature_flags_mask        equ (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_display_path or _feature_flag_cmp_path)
+
+expect_arg_any     equ 0
+expect_arg_pattern equ 1
+expect_arg_dbpath  equ 2
 
 ; TODO: add max dir recursion depth option
 
@@ -33,56 +38,13 @@ segment readable executable
 
     mov r8, qword [rsp]
 
-    mov r12d, (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_display_path or _feature_flag_cmp_path)
+    mov r12d, (_char_lf or _feature_flag_file or _feature_flag_dir or _feature_flag_display_path)
 
-    mov eax, __NR_ioctl
-    mov edi, STDIN_FILENO
-    mov esi, TCGETS
-    mov edx, scratch
-    syscall
-
-    mov rbx, default_path_in_db
-    mov rcx, path_stdin
-    cmp rax, -ENOTTY
-    cmove rbx, rcx
-    mov qword [path_in_db], rbx
-
-    xor eax, eax
-    cmp r8, 2
-    setb al
-    mov r15, rax
-    jb .args_parsing_end
-
-    mov rax, qword [rsp + 16]
-    mov qword [query], rax
-
-    mov rdi, rax
-    xor eax, eax
-    mov rcx, -1
-    repne scasb
-    not rcx
-    dec rcx
-    mov qword [query_size], rcx
-
-    cmp r8, 3
-    jb .args_parsing_end
-
-    mov rax, qword [rsp + 24]
-    mov qword [path_in_db], rax
-
-    ja exit_failure_too_many_args
-
-    ; TODO: parse threads count
-
-    .args_parsing_end:
-
-    mov rax, [rsp]
-
-    lea r8, [rsp + 8 * rax + 16]
+    lea r9, [rsp + 8 * r8 + 16]
 
     .env_loop:
 
-      mov rbx, qword [r8]
+      mov rbx, qword [r9]
       test rbx, rbx
       jz .env_loop_end
 
@@ -93,16 +55,367 @@ segment readable executable
 
       jne .env_loop_not_equal
 
-      mov qword [path_in_db], rsi
+      mov qword [default_path_in_db_holder], rsi
 
       jmp .env_loop_end
 
       .env_loop_not_equal:
 
-      add r8, 8
+      add r9, 8
       jmp .env_loop
 
     .env_loop_end:
+
+    mov eax, __NR_ioctl
+    mov edi, STDIN_FILENO
+    mov esi, TCGETS
+    mov edx, scratch
+    syscall
+
+    mov rbx, qword [default_path_in_db_holder]
+    mov rcx, path_stdin
+    cmp rax, -ENOTTY
+    cmove rbx, rcx
+    mov qword [path_in_db], rbx
+
+    ; TODO: parse args
+    mov r13d, expect_arg_any
+    xor r10, r10
+    lea r9, [rsp + 8]
+
+    .args_parsing_loop:
+
+      add r9, 8
+      inc r10
+
+      cmp r10, r8
+      je .args_parsing_end
+
+      mov rbx, qword [r9]
+
+      mov eax, expect_arg_any
+      mov rdx, qword [query]
+      cmp r13d, expect_arg_pattern
+      cmove rdx, rbx
+      cmove r13d, eax
+      mov qword [query], rdx
+      je .args_parsing_loop
+
+      mov eax, expect_arg_any
+      mov rdx, qword [path_in_db]
+      cmp r13d, expect_arg_dbpath
+      cmove rdx, rbx
+      cmove r13d, eax
+      mov qword [path_in_db], rdx
+      je .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_database
+      mov ecx, arg_database_len
+      repe cmpsb
+      mov eax, expect_arg_dbpath
+      test ecx, ecx
+      cmovz r13d, eax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_database_short
+      mov ecx, arg_database_short_len
+      repe cmpsb
+      mov eax, expect_arg_dbpath
+      test ecx, ecx
+      cmovz r13d, eax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_default_database
+      mov ecx, arg_default_database_len
+      repe cmpsb
+      mov rax, qword [path_in_db]
+      mov rdi, qword [default_path_in_db_holder]
+      test ecx, ecx
+      cmovz rax, rdi
+      mov qword [path_in_db], rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_default_database_short
+      mov ecx, arg_default_database_short_len
+      repe cmpsb
+      mov rax, qword [path_in_db]
+      mov rdi, qword [default_path_in_db_holder]
+      test ecx, ecx
+      cmovz rax, rdi
+      mov qword [path_in_db], rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_basename
+      mov ecx, arg_basename_len
+      repe cmpsb
+      mov rax, r12
+      btr rax, _feature_bit_display_path
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_basename_short
+      mov ecx, arg_basename_short_len
+      repe cmpsb
+      mov rax, r12
+      btr rax, _feature_bit_display_path
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_wholename
+      mov ecx, arg_wholename_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_cmp_path
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_wholename_short
+      mov ecx, arg_wholename_short_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_cmp_path
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_files
+      mov ecx, arg_files_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_file
+      btr rax, _feature_bit_dir
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_files_short
+      mov ecx, arg_files_short_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_file
+      btr rax, _feature_bit_dir
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_folders
+      mov ecx, arg_folders_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_dir
+      btr rax, _feature_bit_file
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_folders_short
+      mov ecx, arg_folders_short_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_dir
+      btr rax, _feature_bit_file
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_all
+      mov ecx, arg_all_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_hidden
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_all_short
+      mov ecx, arg_all_short_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_hidden
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_hidden
+      mov ecx, arg_hidden_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_hidden
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_hidden_short
+      mov ecx, arg_hidden_short_len
+      repe cmpsb
+      mov rax, r12
+      bts rax, _feature_bit_hidden
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_ignore_hidden
+      mov ecx, arg_ignore_hidden_len
+      repe cmpsb
+      mov rax, r12
+      btr rax, _feature_bit_hidden
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_ignore_hidden_short
+      mov ecx, arg_ignore_hidden_short_len
+      repe cmpsb
+      mov rax, r12
+      btr rax, _feature_bit_hidden
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_pattern
+      mov ecx, arg_pattern_len
+      repe cmpsb
+      mov rax, qword [query]
+      test ecx, ecx
+      cmovz rax, rbx
+      mov qword [query], rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_patter_short
+      mov ecx, arg_patter_short_len
+      repe cmpsb
+      mov rax, qword [query]
+      test ecx, ecx
+      cmovz rax, rbx
+      mov qword [query], rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_list
+      mov ecx, arg_list_len
+      repe cmpsb
+      mov rax, qword [query]
+      xor edx, edx
+      test ecx, ecx
+      cmovz rax, rdx
+      mov qword [query], rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_list_short
+      mov ecx, arg_list_short_len
+      repe cmpsb
+      mov rax, qword [query]
+      xor edx, edx
+      test ecx, ecx
+      cmovz rax, rdx
+      mov qword [query], rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_newline
+      mov ecx, arg_newline_len
+      repe cmpsb
+      mov rax, r12
+      mov al, _char_lf
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_newline_short
+      mov ecx, arg_newline_short_len
+      repe cmpsb
+      mov rax, r12
+      mov al, _char_lf
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_null
+      mov ecx, arg_null_len
+      repe cmpsb
+      mov rax, r12
+      mov al, _char_nul
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_null_short
+      mov ecx, arg_null_short_len
+      repe cmpsb
+      mov rax, r12
+      mov al, _char_nul
+      test ecx, ecx
+      cmovz r12, rax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_help
+      mov ecx, arg_help_len
+      repe cmpsb
+      test ecx, ecx
+      jz .args_parsing_help
+
+      mov rsi, rbx
+      mov rdi, arg_help_short
+      mov ecx, arg_help_short_len
+      repe cmpsb
+      test ecx, ecx
+      jz .args_parsing_help
+
+      mov qword [query], rbx
+
+      xor eax, eax
+      mov rdi, rbx
+      xor ecx, ecx
+      dec rcx
+      repne scasb
+      not rcx
+      dec rcx
+
+      mov qword [query_size], rcx
+
+      jmp .args_parsing_loop
+
+    .args_parsing_help:
+
+    mov eax, __NR_write
+    mov edi, STDOUT_FILENO
+    mov rsi, help_msg
+    mov edx, help_msg_len
+    syscall
+
+    mov eax, __NR_exit
+    xor edi, edi
+    syscall
+
+    .args_parsing_end:
 
     mov qword [features], r12
 
@@ -113,11 +426,10 @@ segment readable executable
 
     mov eax, __NR_openat
     mov edi, AT_FDCWD
-    mov rsi, qword [path_in_db]
     mov edx, O_RDONLY
     syscall
 
-    mov rdi, qword [path_in_db]
+    mov rdi, rsi
     cmp rax, -4096
     ja exit_failure_errno_path
     .skip_open:
@@ -162,8 +474,8 @@ segment readable executable
 
     mov r8, rax
 
-    test r15, r15
-    jnz list
+    cmp qword [query], 0
+    je list
 
     xor r15, r15
 
@@ -224,7 +536,7 @@ segment readable executable
         cmp al, _char_nul
         jne .query_copy_loop
 
-      mov byte [rbp], _char_lf
+      mov byte [rbp], r14b
 
       test ah, ah
       jz exit_failure_corrupted_db
@@ -604,7 +916,7 @@ segment readable executable
           cmp al, _char_nul
           jne .copy_loop
 
-        mov byte [rbp], _char_lf
+        mov byte [rbp], r14b
 
         test ah, ah
         jz exit_failure_corrupted_db
@@ -720,16 +1032,101 @@ segment readable
   char_lf db _char_lf
   msg_err_corrupted_db_len  = $ - msg_err_corrupted_db
 
-  default_path_in_db db "/var/lib/klocate/db", _char_nul
-  label char_solidus byte at default_path_in_db
-  path_stdin db "-", 0
+  default_path_in_db db klocate_default_path_db, _char_nul
+  path_stdin db "-", _char_nul
 
-  env_klocate_db_path_id db "KLOCATE_DB_PATH="
+  env_klocate_db_path_id db klocate_default_path_db, "="
   env_klocate_db_path_id_len = $ - env_klocate_db_path_id
+
+  arg_database db "--database", _char_nul
+  arg_database_len = $ - arg_database
+  arg_database_short db "-d", _char_nul
+  arg_database_short_len = $ - arg_database_short
+  arg_default_database db "--default-database", _char_nul
+  arg_default_database_len = $ - arg_default_database
+  arg_default_database_short db "-D", _char_nul
+  arg_default_database_short_len = $ - arg_default_database_short
+  arg_basename db "--basename", _char_nul
+  arg_basename_len = $ - arg_basename
+  arg_basename_short db "-b", _char_nul
+  arg_basename_short_len = $ - arg_basename_short
+  arg_wholename db "--wholename", _char_nul
+  arg_wholename_len = $ - arg_wholename
+  arg_wholename_short db "-w", _char_nul
+  arg_wholename_short_len = $ - arg_wholename_short
+  arg_files db "--files", _char_nul
+  arg_files_len = $ - arg_files
+  arg_files_short db "-f", _char_nul
+  arg_files_short_len = $ - arg_files_short
+  arg_folders db "--folders", _char_nul
+  arg_folders_len = $ - arg_folders
+  arg_folders_short db "-F", _char_nul
+  arg_folders_short_len = $ - arg_folders_short
+  arg_all db "--all", _char_nul
+  arg_all_len = $ - arg_all
+  arg_all_short db "-a", _char_nul
+  arg_all_short_len = $ - arg_all_short
+  arg_hidden db "--hidden", _char_nul
+  arg_hidden_len = $ - arg_hidden
+  arg_hidden_short db "-.", _char_nul
+  arg_hidden_short_len = $ - arg_hidden_short
+  arg_ignore_hidden db "--ignore-hidden", _char_nul
+  arg_ignore_hidden_len = $ - arg_ignore_hidden
+  arg_ignore_hidden_short db "-H", _char_nul
+  arg_ignore_hidden_short_len = $ - arg_ignore_hidden_short
+  arg_pattern db "--pattern", _char_nul
+  arg_pattern_len = $ - arg_pattern
+  arg_patter_short db "-P", _char_nul
+  arg_patter_short_len = $ - arg_patter_short
+  arg_list db "--list", _char_nul
+  arg_list_len = $ - arg_list
+  arg_list_short db "-l", _char_nul
+  arg_list_short_len = $ - arg_list_short
+  arg_newline db "--newline", _char_nul
+  arg_newline_len = $ - arg_newline
+  arg_newline_short db "-n", _char_nul
+  arg_newline_short_len = $ - arg_newline_short
+  arg_null db "--null", _char_nul
+  arg_null_len = $ - arg_null
+  arg_null_short db "-0", _char_nul
+  arg_null_short_len = $ - arg_null_short
+  arg_help db "--help", _char_nul
+  arg_help_len = $ - arg_help
+  arg_help_short db "-?", _char_nul
+  arg_help_short_len = $ - arg_help_short
+  arg_usage db "--usage", _char_nul
+  arg_usage_len = $ - arg_usage
+
+help_msg:
+db "kl (Klocate)", _char_lf
+db "usage: kl [OPTION]... [PATTERN]", _char_lf
+db "find files and directory matching PATTERN", _char_lf
+db "list them all if no PATTERN is provided", _char_lf
+db _char_lf
+db "  -d, --database DBPATH         search inside DBPATH", _char_lf
+db "  -D, --default-database        search inside the default database", _char_lf
+db "  -b, --basename                display only the base name", _char_lf
+db "  -w, --wholename               look for matches the whole path name", _char_lf
+db "  -f, --files                   ignore folders", _char_lf
+db "  -F, --folders                 ignore files", _char_lf
+db "  -a, --all,                    do not ignore hidden files and directories", _char_lf
+db "  -., --hidden", _char_lf
+db "  -H, --ignore-hidden           ignore hidden files and directories", _char_lf
+db "  -P, --pattern PATTERN         use PATTERN for matching", _char_lf
+db "  -l, --list                    list all files without filtering", _char_lf
+db "  -n, --newline                 delimit matches by newline", _char_lf
+db "  -0, --null                    delimit matches by NUL", _char_lf
+db "  -?, --help                    print help information", _char_lf
+db "      --usage", _char_lf
+db _char_lf
+db "the default database is '", klocate_default_path_db, "', or the environment variable '", klocat_env_klocate_db_path_id, "', if set", _char_lf
+help_msg_len = $ - help_msg
 
 segment readable writeable
 
-  query       rq 1
+  default_path_in_db_holder dq default_path_in_db
+
+  query       dq 0
   query_size  rq 1
   features    rq 1
   root_offset rq 1

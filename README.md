@@ -5,15 +5,40 @@ It is written in Assembly, does not depend on any library, and is an imitation o
 ## Usage
 Build the two executables using the provided `build.sh` shell script.
 Create the database at `[db]`, recursively from `[root]`:
-```sh
+```console
 $ kudb [root] [db]
 ```
 The root defaults to `/` and the database location defaults to `/var/lib/klocate/db`.
 Then locate files matching the `[query]` from the database at `[db]`:
-```sh
+```console
 $ kl [query] [db]
 ```
 If no query is provided, it just lists the files recorded in the database, and the database location defaults to the same as with `kudb`.
+```console
+$ kl --help
+kl (Klocate)
+usage: kl [OPTION]... [PATTERN]
+find files and directory matching PATTERN
+list them all if no PATTERN is provided
+
+  -d, --database DBPATH         search inside DBPATH
+  -D, --default-database        search inside the default database
+  -b, --basename                display only the base name
+  -w, --wholename               look for matches the whole path name
+  -f, --files                   ignore folders
+  -F, --folders                 ignore files
+  -a, --all,                    do not ignore hidden files and directories
+  -., --hidden
+  -H, --ignore-hidden           ignore hidden files and directories
+  -P, --pattern PATTERN         use PATTERN for matching
+  -l, --list                    list all files without filtering
+  -n, --newline                 delimit matches by newline
+  -0, --null                    delimit matches by NUL
+  -?, --help                    print help information
+      --usage
+
+the default database is '/var/lib/klocate/db', or the environment variable 'KLOCATE_DB_PATH', if set
+```
 ## How it works
 The filesystem is recursively explored by walker threads, each writing to their own temporary file (`memfd`), dynamically dispatching and executing work. Then the last thread to stop working 'untangles' the work of each thread, writing the results to the database (using `io_uring`).
 It does not keep meta information about each file, neither does it update only the parts of the filesystem that have changed, like the `plocate` tool does.
@@ -32,5 +57,7 @@ It does not keep meta information about each file, neither does it update only t
 ### `kl`:
 - parallelize list & query
 - add max directory recursion depth option
-- properly parse command line arguments
+- add option to quote file names ("a b c": `-Q, --quote-name`) and to escape them (a\ b\ c: `-b, --escape`)
+- add regex matching (`-r`, `--regex`)
+- add case-insensitive matching (`-i`, `--ignore-case`)
 
