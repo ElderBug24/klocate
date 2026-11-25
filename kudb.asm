@@ -25,12 +25,13 @@ scratch_size_exp      equ 8
 scratch_size          equ (1 shl scratch_size_exp) ; 256 bytes
 ring_entries          equ 1024
 ring_thread_idle_ms   equ 2000
+walker_stack_frame    equ (dents_buf_size + 8)
+walker_max_recursion  equ (thread_stack_size / walker_stack_frame)
 
 action_work     equ 0
 action_dispatch equ 1
 action_end      equ 2
 
-; TODO: add max dir recursion depth option
 ; TODO: add option to ignore hidden files and folders
 
 segment readable executable
@@ -286,6 +287,7 @@ segment readable executable
 
     .wait_loop_end:
 
+    mov rbp, qword [walker_max_rec]
     jmp walker
 
     thread_last:
@@ -1024,13 +1026,18 @@ segment readable executable
 
     filebuf_write_1_char_and_skip_n_nocheck action_work, 16
 
+    mov rbp, qword [walker_max_rec]
+
     ; fallthrough
 
   ; r12 : fd
   walker:
 
+    dec rbp
+    js .ret
+
     mov byte [rsp - 1], 0
-    sub rsp, (dents_buf_size + 8) ; room to check for ".\0" or "..\0", 8 bytes padded
+    sub rsp, walker_stack_frame ; room to check for ".\0" or "..\0", 8 bytes padded
 
     .loop:
 
@@ -1183,7 +1190,9 @@ segment readable executable
       inc qword [tfoffsets + r15 + 8]
       filebuf_write_1_char _char_solidus, filebuf_size
 
-      add rsp, (dents_buf_size + 8)
+      add rsp, walker_stack_frame
+
+      inc rbp
 
       ret
 
@@ -1260,6 +1269,15 @@ segment readable executable
 
       jmp .ent_loop_skip
 
+      .ret:
+
+        inc qword [tfoffsets + r15 + 8]
+        filebuf_write_1_char _char_solidus, filebuf_size
+
+        inc rbp
+
+        ret
+
 segment readable
 
   timeout dq 0
@@ -1318,6 +1336,8 @@ segment readable writeable
   path_root_dir dq default_path_root_dir
   path_out_db   dq default_path_out_db
   threads_count dq default_threads_count
+
+  walker_max_rec dq walker_max_recursion
 
   ring_params:
     dd ring_entries

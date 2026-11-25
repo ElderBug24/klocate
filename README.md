@@ -50,7 +50,7 @@ It does not keep meta information about each file, neither does it update only t
 - The `KLOCATE_DB_PATH` environment variable will be used to indicate (when present) the default location for the database)
 ## TODO
 ### `kudb`:
-- add max directory recursion depth option
+- make max directory recursion depth option an option (change value, error at max depth)
 - add option to ignore hidden files and folders
 - add option to filter certain directories that are irrelevant (`.git/`, build folders, ...)
 - properly parse command line arguments
