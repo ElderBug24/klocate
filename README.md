@@ -11,7 +11,7 @@ $ kudb [root] [db]
 The root defaults to `/` and the database location defaults to `/var/lib/klocate/db`.
 Then locate files matching the `[query]` from the database at `[db]`:
 ```console
-$ kl [query] [db]
+$ kl [query]
 ```
 If no query is provided, it just lists the files recorded in the database, and the database location defaults to the same as with `kudb`.
 ```console
@@ -39,6 +39,7 @@ list them all if no PATTERN is provided
       --usage
 
 the default database is '/var/lib/klocate/db', or the environment variable 'KLOCATE_DB_PATH', if set
+the default maximum search depth is 16384
 ```
 ## How it works
 The filesystem is recursively explored by walker threads, each writing to their own temporary file (`memfd`), dynamically dispatching and executing work. Then the last thread to stop working 'untangles' the work of each thread, writing the results to the database (using `io_uring`).
@@ -57,7 +58,6 @@ It does not keep meta information about each file, neither does it update only t
 - properly parse command line arguments
 ### `kl`:
 - parallelize list & query
-- add max directory recursion depth option
 - add option to quote file names ("a b c": `-Q, --quote-name`) and to escape them (a\ b\ c: `-b, --escape`)
 - add regex matching (`-r`, `--regex`)
 - add case-insensitive matching (`-i`, `--ignore-case`)

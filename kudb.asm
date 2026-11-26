@@ -862,8 +862,10 @@ segment readable executable
 
       mov eax, __NR_write
       mov edi, STDERR_FILENO
-      mov rsi, msg_err_too_many_args
-      mov edx, msg_err_too_many_args_len
+      mov rsi, msg_error
+      assert (msg_error + msg_error_len = msg_sep)
+      assert (msg_sep + msg_sep_len = msg_err_too_many_args)
+      mov edx, (msg_error_len + msg_sep_len + msg_err_too_many_args_len)
       syscall
 
       mov eax, __NR_exit_group
@@ -874,8 +876,9 @@ segment readable executable
 
       mov eax, __NR_write
       mov edi, STDERR_FILENO
-      mov rsi, msg_err
-      mov edx, msg_err_sep_len
+      mov rsi, msg_error
+      assert (msg_error + msg_error_len = msg_sep)
+      mov edx, (msg_error_len + msg_sep_len)
       syscall
 
       mov eax, __NR_write
@@ -1283,38 +1286,17 @@ segment readable
   timeout dq 0
           dq 0500000
 
-  char_lf db _char_lf
-
-  msg_err               db "error"
+  msg_error             db "error"
+  msg_error_len = $ - msg_error
   msg_sep               db      ": "
-  msg_err_sep_len = $ - msg_err
   msg_sep_len = $ - msg_sep
-                        db        "Too many arguments", _char_lf
-  label msg_err_too_many_args byte at msg_err
+  msg_err_too_many_args db        "Too many arguments"
+  char_lf db _char_lf
   msg_err_too_many_args_len = $ - msg_err_too_many_args
 
-  macro db_int value {
-    local val, divisor, digit
-    val = value
-    if val = 0
-      db '0'
-    else
-      divisor = 1
-      while divisor <= val / 10
-      divisor = divisor * 10
-      end while
-      while divisor > 0
-        digit = val / divisor
-        db '0' + digit
-        val = val - (digit * divisor)
-        divisor = divisor / 10
-      end while
-    end if
-  }
-
   msg_err_too_many_threads db "Too many threads (max: "
-                                               db_int max_threads
-                                                             db ")", 10
+                                              db_uint max_threads
+                                                             db ")", _char_lf
   msg_err_too_many_threads_len = $ - msg_err_too_many_threads
 
   default_path_root_dir   db "/", _char_nul

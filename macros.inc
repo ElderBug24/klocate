@@ -32,3 +32,22 @@ macro mov dest, src {
   end if
 }
 
+  macro db_uint value {
+    local val, divisor, digit
+    val = value
+    if val = 0
+      db '0'
+    else
+      divisor = 1
+      while divisor <= val / 10
+      divisor = divisor * 10
+      end while
+      while divisor > 0
+        digit = val / divisor
+        db '0' + digit
+        val = val - (digit * divisor)
+        divisor = divisor / 10
+      end while
+    end if
+  }
+

@@ -1283,6 +1283,9 @@ db "  -?, --help                    print help information", _char_lf
 db "      --usage", _char_lf
 db _char_lf
 db "the default database is '", klocate_default_path_db, "', or the environment variable '", klocat_env_klocate_db_path_id, "', if set", _char_lf
+db "the default maximum search depth is "
+db_uint max_recursion
+db _char_lf
 help_msg_len = $ - help_msg
 
 segment readable writeable
