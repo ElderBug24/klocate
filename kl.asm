@@ -467,7 +467,8 @@ segment readable executable
 
     .args_parsing_end:
 
-    ; TODO: check that r13d is expect_arg_any
+    cmp r13d, expect_arg_any
+    jne exit_failure_missing_operand
 
     mov qword [features], r12
 
@@ -943,6 +944,43 @@ segment readable executable
       dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
+    exit_failure_missing_operand:
+
+      mov eax, __NR_write
+      mov edi, STDERR_FILENO
+      mov rsi, msg_error
+      assert (msg_error + msg_error_len = msg_sep)
+      mov edx, (msg_error_len + msg_sep_len)
+      syscall
+
+      mov eax, __NR_write
+      mov rsi, msg_err_missing_op_1
+      mov edx, msg_err_missing_op_1_len
+      syscall
+
+      mov rdi, [r9 - 8]
+      mov rsi, rdi
+      xor eax, eax
+      mov rcx, -1
+      cld
+      repne scasb
+      not rcx
+      lea rdx, [rcx - 1]
+
+      mov eax, __NR_write
+      mov edi, STDERR_FILENO
+      syscall
+
+      mov eax, __NR_write
+      mov rsi, msg_err_missing_op_2
+      mov edx, msg_err_missing_op_2_len
+      syscall
+
+      mov eax, __NR_exit_group
+      assert (STDERR_FILENO = 2)
+      dec edi ; 1 = STDERR_FILENO - 1
+      syscall
+
     ; rsi : source
     ; rcx : size of source
     ; destroys: rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
@@ -1147,6 +1185,10 @@ segment readable
   msg_err_parse_1_len = $ - msg_err_parse_1
   msg_err_parse_2      db                           "'", _char_lf
   msg_err_parse_2_len = $ - msg_err_parse_2
+  msg_err_missing_op_1 db         "Missing required argument to option '"
+  msg_err_missing_op_1_len = $ - msg_err_missing_op_1
+  label msg_err_missing_op_2 byte at msg_err_parse_2
+  msg_err_missing_op_2_len = msg_err_parse_2_len
 
   default_path_in_db db klocate_default_path_db, _char_nul
   path_stdin db "-", _char_nul
