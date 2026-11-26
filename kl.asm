@@ -439,16 +439,20 @@ segment readable executable
 
       mov r13d, expect_arg_any
 
+      mov rdi, rbx
       mov rsi, rbx
       xor ebx, ebx
 
-      ; TODO: safe parsing
       .parse_depth_loop:
 
         movzx eax, byte [rsi]
         inc rsi
         test al, al
         jz .parse_depth_loop_end
+        cmp al, '0'
+        jb exit_failure_parse
+        cmp al, '9'
+        ja exit_failure_parse
 
         lea rcx, [rbx + 4 * rbx]
         lea rbx, [rax + 2 * rcx]
@@ -823,8 +827,8 @@ segment readable executable
         dec rcx
 
         mov eax, __NR_write
-        mov rsi, r13
         mov edi, STDERR_FILENO
+        mov rsi, r13
         mov rdx, rcx
         syscall
 
@@ -867,8 +871,8 @@ segment readable executable
         sub rsi, rcx
         dec rsi
 
-        mov eax, 1
-        mov edi, 2
+        mov eax, __NR_write
+        mov edi, STDERR_FILENO
         mov rdx, rcx
         syscall
 
@@ -880,6 +884,7 @@ segment readable executable
       end if
 
       mov eax, __NR_exit_group
+      assert (STDERR_FILENO = 2)
       dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
@@ -888,15 +893,53 @@ segment readable executable
       mov eax, __NR_write
       mov edi, STDERR_FILENO
       mov rsi, msg_error
+      assert (msg_error + msg_error_len = msg_sep)
+      assert (msg_sep + msg_sep_len = msg_err_corrupted_db)
+      mov edx, (msg_error_len + msg_sep_len + msg_err_corrupted_db_len)
+      syscall
+
+      mov eax, __NR_exit_group
+      assert (STDERR_FILENO = 2)
+      dec edi ; 1 = STDERR_FILENO - 1
+      syscall
+
+    exit_failure_parse:
+
+      mov r13, rdi
+
+      mov eax, __NR_write
+      mov edi, STDERR_FILENO
+      mov rsi, msg_error
+      assert (msg_error + msg_error_len = msg_sep)
       mov edx, (msg_error_len + msg_sep_len)
       syscall
 
       mov eax, __NR_write
-      mov rsi, msg_err_corrupted_db
-      mov edx, msg_err_corrupted_db_len
+      mov rsi, msg_err_parse_1
+      mov edx, msg_err_parse_1_len
+      syscall
+
+      mov rdi, r13
+      xor eax, eax
+      mov rcx, -1
+      cld
+      repne scasb
+      not rcx
+      dec rcx
+
+      mov eax, __NR_write
+      mov edi, STDERR_FILENO
+      mov rsi, r13
+      mov rdx, rcx
+      syscall
+
+      mov eax, __NR_write
+      mov rsi, msg_err_parse_2
+      mov edx, msg_err_parse_2_len
       syscall
 
       mov eax, __NR_exit_group
+      assert (STDERR_FILENO = 2)
       dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
@@ -1100,6 +1143,10 @@ segment readable
   msg_err_corrupted_db  db        "Corrupted Database"
   char_lf db _char_lf
   msg_err_corrupted_db_len  = $ - msg_err_corrupted_db
+  msg_err_parse_1      db         "Failed to parse '"
+  msg_err_parse_1_len = $ - msg_err_parse_1
+  msg_err_parse_2      db                           "'", _char_lf
+  msg_err_parse_2_len = $ - msg_err_parse_2
 
   default_path_in_db db klocate_default_path_db, _char_nul
   path_stdin db "-", _char_nul
