@@ -32,6 +32,7 @@ list them all if no PATTERN is provided
   -H, --ignore-hidden           ignore hidden files and directories
   -P, --pattern PATTERN         use PATTERN for matching
   -l, --list                    list all files without filtering
+  -m, --depth DEPTH             limit the search depth to DEPTH
   -n, --newline                 delimit matches by newline
   -0, --null                    delimit matches by NUL
   -?, --help                    print help information
@@ -50,7 +51,7 @@ It does not keep meta information about each file, neither does it update only t
 - The `KLOCATE_DB_PATH` environment variable will be used to indicate (when present) the default location for the database)
 ## TODO
 ### `kudb`:
-- make max directory recursion depth option an option (change value, error at max depth)
+- make max directory recursion depth an option (change value, error at max depth)
 - add option to ignore hidden files and folders
 - add option to filter certain directories that are irrelevant (`.git/`, build folders, ...)
 - properly parse command line arguments

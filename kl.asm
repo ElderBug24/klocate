@@ -8,11 +8,12 @@ include "constants.inc"
 include "filebuf.inc"
 include "klocate.inc"
 
-pagesize                   equ 4096           ; 4  Kib
-filebuf_size               equ (8 * pagesize) ; 32 Kib
+pagesize                   equ 4096              ; 4  Kib
+filebuf_size               equ (8 * pagesize)    ; 32 Kib
 max_threads                equ 64
-list_mode_buffer_size      equ (8 * pagesize) ; 32 Kib
-initial_nonreg_buffer_size equ (4 * pagesize) ; 16 Kib
+list_mode_buffer_size      equ (1024 * pagesize) ; 4  Mib
+initial_nonreg_buffer_size equ (4 * pagesize)    ; 16 Kib
+max_recursion              equ (list_mode_buffer_size / 256)
 
 _feature_bit_file          equ 8
 _feature_bit_dir           equ 9
@@ -29,8 +30,7 @@ _feature_flags_mask        equ (_feature_flag_file or _feature_flag_dir or _feat
 expect_arg_any     equ 0
 expect_arg_pattern equ 1
 expect_arg_dbpath  equ 2
-
-; TODO: add max dir recursion depth option
+expect_arg_depth   equ 3
 
 segment readable executable
 
@@ -78,7 +78,6 @@ segment readable executable
     cmove rbx, rcx
     mov qword [path_in_db], rbx
 
-    ; TODO: parse args
     mov r13d, expect_arg_any
     xor r10, r10
     lea r9, [rsp + 8]
@@ -108,6 +107,9 @@ segment readable executable
       cmove r13d, eax
       mov qword [path_in_db], rdx
       je .args_parsing_loop
+
+      cmp r13d, expect_arg_depth
+      je .args_parse_depth
 
       mov rsi, rbx
       mov rdi, arg_database
@@ -336,6 +338,24 @@ segment readable executable
       jz .args_parsing_loop
 
       mov rsi, rbx
+      mov rdi, arg_depth
+      mov ecx, arg_depth_len
+      repe cmpsb
+      mov eax, expect_arg_depth
+      test ecx, ecx
+      cmovz r13d, eax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
+      mov rdi, arg_depth_short
+      mov ecx, arg_depth_short_len
+      repe cmpsb
+      mov eax, expect_arg_depth
+      test ecx, ecx
+      cmovz r13d, eax
+      jz .args_parsing_loop
+
+      mov rsi, rbx
       mov rdi, arg_newline
       mov ecx, arg_newline_len
       repe cmpsb
@@ -405,17 +425,45 @@ segment readable executable
 
     .args_parsing_help:
 
-    mov eax, __NR_write
-    mov edi, STDOUT_FILENO
-    mov rsi, help_msg
-    mov edx, help_msg_len
-    syscall
+      mov eax, __NR_write
+      mov edi, STDOUT_FILENO
+      mov rsi, help_msg
+      mov edx, help_msg_len
+      syscall
 
-    mov eax, __NR_exit
-    xor edi, edi
-    syscall
+      mov eax, __NR_exit
+      xor edi, edi
+      syscall
+
+    .args_parse_depth:
+
+      mov r13d, expect_arg_any
+
+      mov rsi, rbx
+      xor ebx, ebx
+
+      ; TODO: safe parsing
+      .parse_depth_loop:
+
+        movzx eax, byte [rsi]
+        inc rsi
+        test al, al
+        jz .parse_depth_loop_end
+
+        lea rcx, [rbx + 4 * rbx]
+        lea rbx, [rax + 2 * rcx]
+        sub rbx, _char_digit_zero
+        jmp .parse_depth_loop
+
+      .parse_depth_loop_end:
+
+      mov qword [max_rec], rbx
+
+      jmp .args_parsing_loop
 
     .args_parsing_end:
+
+    ; TODO: check that r13d is expect_arg_any
 
     mov qword [features], r12
 
@@ -506,11 +554,18 @@ segment readable executable
     add r8, rax
     mov [file_end], r8
 
+    mov r12, qword [max_rec]
+
     push exit_failure_corrupted_db
 
     jmp .query_skip_ahead
 
     .query_rec:
+
+        dec r12
+        js .query_skip_dir_name
+
+        .query_loop:
 
       cmp byte [r13], _char_nul
       je .query_end
@@ -556,7 +611,7 @@ segment readable executable
       and sil, dl
       test sil, dil
       cmovnz rbp, rbx
-      jnz .query_rec
+      jnz .query_loop
       not dil
       test sil, dil
       jnz .query_skip_dir
@@ -601,7 +656,7 @@ segment readable executable
 
       cmp byte [rbp - 1], _char_solidus
       cmovne rbp, rbx
-      jne .query_rec
+      jne .query_loop
 
       push rbx
       push .query_back
@@ -612,11 +667,12 @@ segment readable executable
 
       pop rbp
 
-      jmp .query_rec
+      jmp .query_loop
 
     .query_ret:
 
       inc r13
+      inc r12
 
       ret
 
@@ -674,7 +730,17 @@ segment readable executable
 
       mov r13, rdi
 
-      jmp .query_rec
+      jmp .query_loop
+
+    .query_skip_dir_name:
+
+      add rsp, 16
+      mov rbp, rbx
+
+      xor ebx, ebx
+      mov rdi, r13
+
+      jmp .query_skip_dir_loop
 
     ; r12: fd
     .read_nonreg:
@@ -817,18 +883,6 @@ segment readable executable
       dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
-    exit_failure_too_many_args:
-
-      mov eax, __NR_write
-      mov edi, STDERR_FILENO
-      mov rsi, msg_err_too_many_args
-      mov edx, msg_err_too_many_args_len
-      syscall
-
-      mov eax, __NR_exit_group
-      dec edi ; 1 = STDERR_FILENO - 1
-      syscall
-
     exit_failure_corrupted_db:
 
       mov eax, __NR_write
@@ -886,11 +940,18 @@ segment readable executable
       add r8, rax
       mov [file_end], r8
 
+      mov r12, qword [max_rec]
+
       push exit_failure_corrupted_db
 
       jmp .skip_ahead
 
       .rec:
+
+        dec r12
+        js .skip_dir_name
+
+        .loop:
 
         cmp byte [r13], _char_nul
         je .end
@@ -936,7 +997,7 @@ segment readable executable
         and sil, dl
         test sil, dil
         cmovnz rbp, rbx
-        jnz .rec
+        jnz .loop
         not dil
         test sil, dil
         jnz .skip_dir
@@ -956,7 +1017,7 @@ segment readable executable
 
         cmp byte [rbp - 1], _char_solidus
         cmovne rbp, rbx
-        jne .rec
+        jne .loop
 
         push rbx
         push .back
@@ -967,11 +1028,12 @@ segment readable executable
 
         pop rbp
 
-        jmp .rec
+        jmp .loop
 
       .ret:
 
         inc r13
+        inc r12
 
         ret
 
@@ -1017,7 +1079,17 @@ segment readable executable
 
         mov r13, rdi
 
-        jmp .rec
+        jmp .loop
+
+      .skip_dir_name:
+
+        add rsp, 16
+        mov rbp, rbx
+
+        xor ebx, ebx
+        mov rdi, r13
+
+        jmp .skip_dir_loop
 
 segment readable
 
@@ -1025,9 +1097,6 @@ segment readable
   msg_error_len = $ - msg_error
   msg_sep               db      ": "
   msg_sep_len = $ - msg_sep
-                        db        "Too many arguments", _char_lf
-  label msg_err_too_many_args byte at msg_error
-  msg_err_too_many_args_len = $ - msg_err_too_many_args
   msg_err_corrupted_db  db        "Corrupted Database"
   char_lf db _char_lf
   msg_err_corrupted_db_len  = $ - msg_err_corrupted_db
@@ -1082,6 +1151,10 @@ segment readable
   arg_list_len = $ - arg_list
   arg_list_short db "-l", _char_nul
   arg_list_short_len = $ - arg_list_short
+  arg_depth db "--depth", _char_nul
+  arg_depth_len = $ - arg_depth
+  arg_depth_short db "-m", _char_nul
+  arg_depth_short_len = $ - arg_depth_short
   arg_newline db "--newline", _char_nul
   arg_newline_len = $ - arg_newline
   arg_newline_short db "-n", _char_nul
@@ -1114,6 +1187,7 @@ db "  -., --hidden", _char_lf
 db "  -H, --ignore-hidden           ignore hidden files and directories", _char_lf
 db "  -P, --pattern PATTERN         use PATTERN for matching", _char_lf
 db "  -l, --list                    list all files without filtering", _char_lf
+db "  -m, --depth DEPTH             limit the search depth to DEPTH", _char_lf
 db "  -n, --newline                 delimit matches by newline", _char_lf
 db "  -0, --null                    delimit matches by NUL", _char_lf
 db "  -?, --help                    print help information", _char_lf
@@ -1126,6 +1200,8 @@ segment readable writeable
 
   default_path_in_db_holder dq default_path_in_db
 
+  max_rec dq max_recursion
+
   query       dq 0
   query_size  rq 1
   features    rq 1
@@ -1136,5 +1212,5 @@ segment readable writeable
 
   filebufs rq (max_threads * 4) ; 32 bytes padded
 
-  scratch rb 144
+  scratch rb 256
 

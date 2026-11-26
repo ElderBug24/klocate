@@ -20,7 +20,7 @@ pipe_buf              equ pagesize
 max_threads           equ 64
 default_threads_count equ 4
 thread_stack_size_exp equ 24
-thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * pagesize) = 4Mib
+thread_stack_size     equ (1 shl thread_stack_size_exp) ; (4 * 1024 * pagesize) = 16 Mib
 scratch_size_exp      equ 8
 scratch_size          equ (1 shl scratch_size_exp) ; 256 bytes
 ring_entries          equ 1024
