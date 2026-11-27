@@ -116,153 +116,93 @@ segment readable executable
 
       inc rbx
 
-      mov rsi, rbx
-      mov rdi, arg_database_short
-      mov ecx, arg_database_short_len
-      repe cmpsb
       mov eax, expect_arg_dbpath
-      test ecx, ecx
-      cmovz r13d, eax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_database_short
+      cmove r13d, eax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_default_database_short
-      mov ecx, arg_default_database_short_len
-      repe cmpsb
       mov rax, qword [path_in_db]
       mov rdi, qword [default_path_in_db_holder]
-      test ecx, ecx
-      cmovz rax, rdi
+      cmp word [rbx], arg_default_database_short
+      cmove rax, rdi
       mov qword [path_in_db], rax
-      jz .args_parsing_loop
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_basename_short
-      mov ecx, arg_basename_short_len
-      repe cmpsb
       mov rax, r12
       btr rax, _feature_bit_display_path
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_basename_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_wholename_short
-      mov ecx, arg_wholename_short_len
-      repe cmpsb
       mov rax, r12
       bts rax, _feature_bit_cmp_path
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_wholename_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_files_short
-      mov ecx, arg_files_short_len
-      repe cmpsb
       mov rax, r12
       bts rax, _feature_bit_file
       btr rax, _feature_bit_dir
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_files_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_folders_short
-      mov ecx, arg_folders_short_len
-      repe cmpsb
       mov rax, r12
       bts rax, _feature_bit_dir
       btr rax, _feature_bit_file
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_folders_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_all_short
-      mov ecx, arg_all_short_len
-      repe cmpsb
       mov rax, r12
       bts rax, _feature_bit_hidden
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_all_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_hidden_short
-      mov ecx, arg_hidden_short_len
-      repe cmpsb
       mov rax, r12
       bts rax, _feature_bit_hidden
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_hidden_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_ignore_hidden_short
-      mov ecx, arg_ignore_hidden_short_len
-      repe cmpsb
       mov rax, r12
       btr rax, _feature_bit_hidden
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_ignore_hidden_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_pattern_short
-      mov ecx, arg_pattern_short_len
-      repe cmpsb
       mov rax, qword [query]
-      test ecx, ecx
-      cmovz rax, rbx
+      cmp word [rbx], arg_pattern_short
+      cmove rax, rbx
       mov qword [query], rax
-      jz .args_parsing_loop
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_list_short
-      mov ecx, arg_list_short_len
-      repe cmpsb
       mov rax, qword [query]
       xor edx, edx
-      test ecx, ecx
-      cmovz rax, rdx
+      cmp word [rbx], arg_list_short
+      cmove rax, rdx
       mov qword [query], rax
-      jz .args_parsing_loop
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_depth_short
-      mov ecx, arg_depth_short_len
-      repe cmpsb
       mov eax, expect_arg_depth
-      test ecx, ecx
-      cmovz r13d, eax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_depth_short
+      cmove r13d, eax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_newline_short
-      mov ecx, arg_newline_short_len
-      repe cmpsb
       mov rax, r12
       mov al, _char_lf
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_newline_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_null_short
-      mov ecx, arg_null_short_len
-      repe cmpsb
       mov rax, r12
       mov al, _char_nul
-      test ecx, ecx
-      cmovz r12, rax
-      jz .args_parsing_loop
+      cmp word [rbx], arg_null_short
+      cmove r12, rax
+      je .args_parsing_loop
 
-      mov rsi, rbx
-      mov rdi, arg_help_short
-      mov ecx, arg_help_short_len
-      repe cmpsb
-      test ecx, ecx
+      cmp word [rbx], arg_help_short
       jz .args_parsing_help
 
       cmp byte [rbx], _char_hyphen_minus
@@ -1208,66 +1148,51 @@ segment readable
   env_klocate_db_path_id db klocate_default_path_db, "="
   env_klocate_db_path_id_len = $ - env_klocate_db_path_id
 
-  arg_database_short db "d", _char_nul
-  arg_database_short_len = $ - arg_database_short
+  arg_database_short = "d"
+  arg_default_database_short = "D"
+  arg_basename_short = "b"
+  arg_wholename_short = "w"
+  arg_files_short = "f"
+  arg_folders_short = "F"
+  arg_all_short = "a"
+  arg_newline_short = "n"
+  arg_hidden_short = "."
+  arg_ignore_hidden_short = "H"
+  arg_pattern_short = "P"
+  arg_depth_short = "m"
+  arg_list_short = "l"
+  arg_null_short = "0"
+  arg_help_short = "?"
   arg_default_database db "default-"
   arg_database db "database", _char_nul
   arg_database_len = $ - arg_database
   arg_default_database_len = $ - arg_default_database
-  arg_default_database_short db "D", _char_nul
-  arg_default_database_short_len = $ - arg_default_database_short
   arg_basename db "basename", _char_nul
   arg_basename_len = $ - arg_basename
-  arg_basename_short db "b", _char_nul
-  arg_basename_short_len = $ - arg_basename_short
   arg_wholename db "wholename", _char_nul
   arg_wholename_len = $ - arg_wholename
-  arg_wholename_short db "w", _char_nul
-  arg_wholename_short_len = $ - arg_wholename_short
   arg_files db "files", _char_nul
   arg_files_len = $ - arg_files
-  arg_files_short db "f", _char_nul
-  arg_files_short_len = $ - arg_files_short
   arg_folders db "folders", _char_nul
   arg_folders_len = $ - arg_folders
-  arg_folders_short db "F", _char_nul
-  arg_folders_short_len = $ - arg_folders_short
   arg_all db "all", _char_nul
   arg_all_len = $ - arg_all
-  arg_all_short db "a", _char_nul
-  arg_all_short_len = $ - arg_all_short
-  arg_hidden db "hidde"
-  arg_newline_short db "n", _char_nul
-  arg_newline_short_len = $ - arg_newline_short
+  arg_ignore_hidden db "ignore-"
+  arg_hidden db "hidden", _char_nul
   arg_hidden_len = $ - arg_hidden
-  arg_hidden_short db ".", _char_nul
-  arg_hidden_short_len = $ - arg_hidden_short
-  arg_ignore_hidden db "ignore-hidden", _char_nul
   arg_ignore_hidden_len = $ - arg_ignore_hidden
-  arg_ignore_hidden_short db "H", _char_nul
-  arg_ignore_hidden_short_len = $ - arg_ignore_hidden_short
   arg_pattern db "pattern", _char_nul
   arg_pattern_len = $ - arg_pattern
-  arg_pattern_short db "P", _char_nul
-  arg_pattern_short_len = $ - arg_pattern_short
   arg_list db "list", _char_nul
   arg_list_len = $ - arg_list
   arg_depth db "depth", _char_nul
   arg_depth_len = $ - arg_depth
-  arg_depth_short db "m", _char_nul
-  arg_depth_short_len = $ - arg_depth_short
   arg_newline db "newline", _char_nul
   arg_newline_len = $ - arg_newline
-  arg_null db "nul"
-  arg_list_short db "l", _char_nul
-  arg_list_short_len = $ - arg_list_short
+  arg_null db "null"
   arg_null_len = $ - arg_null
-  arg_null_short db "0", _char_nul
-  arg_null_short_len = $ - arg_null_short
   arg_help db "help", _char_nul
   arg_help_len = $ - arg_help
-  arg_help_short db "?", _char_nul
-  arg_help_short_len = $ - arg_help_short
   arg_usage db "usage", _char_nul
   arg_usage_len = $ - arg_usage
 

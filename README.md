@@ -58,6 +58,7 @@ It does not keep meta information about each file, neither does it update only t
 - properly parse command line arguments
 ### `kl`:
 - parallelize list & query
+- add option to query from a specified root directory
 - add option to quote file names ("a b c": `-Q, --quote-name`) and to escape them (a\ b\ c: `-b, --escape`)
 - add regex matching (`-r`, `--regex`)
 - add case-insensitive matching (`-i`, `--ignore-case`)
