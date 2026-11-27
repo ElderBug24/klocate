@@ -78,7 +78,7 @@ segment readable executable
 
     .args_parsing_end:
 
-    mov rax, [rsp]
+    mov rax, qword [rsp]
 
     lea r8, [rsp + 8 * rax + 16]
 
@@ -322,6 +322,9 @@ segment readable executable
       sub r15, 32
       jns .flush_loop
 
+    mov dword [ring_params + _offset_p_cq_entries], ring_entries
+    mov dword [ring_params + _offset_p_flags], (IORING_SETUP_SQPOLL or IORING_SETUP_NO_SQARRAY or IORING_SETUP_CQSIZE or IORING_SETUP_CLAMP or IORING_SETUP_SINGLE_ISSUER)
+    mov dword [ring_params + _offset_p_sq_idle], ring_thread_idle_ms
     mov eax, __NR_io_uring_setup
     mov edi, ring_entries
     mov rsi, ring_params
@@ -336,44 +339,44 @@ segment readable executable
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov [ring_fd], rax
+    mov qword [ring_fd], rax
 
     mov ecx, (IORING_FEAT_SINGLE_MMAP or IORING_FEAT_SQPOLL_NONFIXED)
-    mov eax, [ring_params + _offset_p_features]
+    mov eax, dword [ring_params + _offset_p_features]
     and eax, ecx
     cmp eax, ecx
     jne thread_last_no_ring
 
     mov eax, __NR_mmap
     xor edi, edi
-    mov esi, [ring_params + _offset_p_cq_entries]
+    mov esi, dword [ring_params + _offset_p_cq_entries]
     shl esi, 4
-    add esi, [ring_params + _offset_p_cq_cqes]
+    add esi, dword [ring_params + _offset_p_cq_cqes]
     mov edx, (PROT_READ or PROT_WRITE)
     mov r10d, (MAP_SHARED or MAP_POPULATE)
-    mov r8, [ring_fd]
+    mov r8, qword [ring_fd]
     mov r9d, IORING_OFF_SQ_RING
     syscall
 
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov [ring_base], rax
+    mov qword [ring_base], rax
 
     mov eax, __NR_mmap
     xor edi, edi
-    mov esi, [ring_params + _offset_p_sq_entries]
+    mov esi, dword [ring_params + _offset_p_sq_entries]
     shl esi, 6
     mov edx, (PROT_READ or PROT_WRITE)
     mov r10d, (MAP_SHARED or MAP_POPULATE)
-    mov r8, [ring_fd]
+    mov r8, qword [ring_fd]
     mov r9d, IORING_OFF_SQES
     syscall
 
     cmp rax, -4096
     ja exit_failure_errno
 
-    mov [sqes_base], rax
+    mov qword [sqes_base], rax
 
     xor r13, r13
     xor r15, r15
@@ -407,7 +410,7 @@ segment readable executable
       dec ecx
       and ecx, eax
       shl ecx, 6
-      add rcx, [sqes_base]
+      add rcx, qword [sqes_base]
       mov byte [rcx + _offset_sqe_opcode], IORING_OP_WRITE
       mov byte [rcx + _offset_sqe_flags], (IOSQE_IO_LINK or IOSQE_CQE_SKIP_SUCCESS or IOSQE_ASYNC)
       mov dword [rcx + _offset_sqe_fd], r12d
@@ -471,7 +474,7 @@ segment readable executable
         dec ecx
         and ecx, eax
         shl ecx, 4
-        mov edi, [ring_params + _offset_p_cq_cqes]
+        mov edi, dword [ring_params + _offset_p_cq_cqes]
         add rdi, r8
         add rdi, rcx
         mov r11, qword [rdi + _offset_cqe_user_data]
@@ -505,7 +508,7 @@ segment readable executable
       .again:
 
         mov rax, retry_ud
-        mov ecx, [retry_n]
+        mov ecx, dword [retry_n]
         mov qword [rax + 8 * rcx], r11
         inc ecx
         mov dword [retry_n], ecx
@@ -1321,18 +1324,6 @@ segment readable writeable
 
   walker_max_rec dq walker_max_recursion
 
-  ring_params:
-    dd ring_entries
-    dd ring_entries
-    dd (IORING_SETUP_SQPOLL or IORING_SETUP_NO_SQARRAY or IORING_SETUP_CQSIZE or IORING_SETUP_CLAMP or IORING_SETUP_SINGLE_ISSUER)
-    dd 0
-    dd ring_thread_idle_ms
-    dd 0
-    dd 0
-    dd 0, 0, 0
-    db 40 dup 0
-    db 40 dup 0
-
   dispatch_declare max_threads
 
   ring_base   rq 1
@@ -1350,4 +1341,5 @@ segment readable writeable
   pipe_fds rd 2
 
   scratch rb (max_threads * scratch_size)
+  label ring_params byte at scratch
 

@@ -178,7 +178,6 @@ segment readable executable
       mov qword [query], rax
       je .args_parsing_loop
 
-      mov rax, qword [query]
       xor edx, edx
       cmp word [rbx], arg_list_short
       cmove rax, rdx
@@ -203,6 +202,9 @@ segment readable executable
       je .args_parsing_loop
 
       cmp word [rbx], arg_help_short
+      jz .args_parsing_help
+
+      cmp word [rbx], arg_usage_short
       jz .args_parsing_help
 
       cmp byte [rbx], _char_hyphen_minus
@@ -316,7 +318,6 @@ segment readable executable
       mov rdi, arg_list
       mov ecx, arg_list_len
       repe cmpsb
-      mov rax, qword [query]
       xor edx, edx
       test ecx, ecx
       cmovz rax, rdx
@@ -391,6 +392,16 @@ segment readable executable
 
       mov r13d, expect_arg_any
 
+      call .args_parse_uint
+      inc rbx
+
+      mov qword [max_rec], rbx
+
+      jmp .args_parsing_loop
+
+    ; rbx : source
+    .args_parse_uint:
+
       mov rdi, rbx
       mov rsi, rbx
       xor ebx, ebx
@@ -413,9 +424,7 @@ segment readable executable
 
       .parse_depth_loop_end:
 
-      mov qword [max_rec], rbx
-
-      jmp .args_parsing_loop
+      ret
 
     .args_parsing_end:
 
@@ -936,15 +945,6 @@ segment readable executable
       dec edi ; 1 = STDERR_FILENO - 1
       syscall
 
-    ; rsi : source
-    ; rcx : size of source
-    ; destroys: rax, rcx, rdx, rsi, rdi, r8, r9, r10, r11
-    filter_entry:
-
-      filebuf_write filebuf_size
-
-      ret
-
     list:
 
       xor r15, r15
@@ -1120,6 +1120,7 @@ segment readable executable
       .skip_dir_name:
 
         add rsp, 16
+        inc r12
         mov rbp, rbx
 
         xor ebx, ebx
@@ -1165,7 +1166,8 @@ segment readable
   arg_depth_short = "m"
   arg_list_short = "l"
   arg_null_short = "0"
-  arg_help_short = "?"
+  arg_help_short = "h"
+  arg_usage_short = "?"
   arg_default_database db "default-"
   arg_database db "database", _char_nul
   arg_database_len = $ - arg_database
@@ -1219,8 +1221,8 @@ segment readable
   db "  -m, --depth DEPTH             limit the search depth to DEPTH", _char_lf
   db "  -n, --newline                 delimit matches by newline", _char_lf
   db "  -0, --null                    delimit matches by NUL", _char_lf
-  db "  -?, --help                    print help information", _char_lf
-  db "      --usage", _char_lf
+  db "  -h, --help                    print help information", _char_lf
+  db "  -?, --usage", _char_lf
   db _char_lf
   db "the default database is '", klocate_default_path_db, "', or the environment variable '", klocat_env_klocate_db_path_id, "', if set", _char_lf
   db "the default maximum search depth is "
@@ -1244,5 +1246,6 @@ segment readable writeable
 
   filebufs rq (max_threads * 4) ; 32 bytes padded
 
+  align 64
   scratch rb 256
 
