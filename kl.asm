@@ -25,7 +25,9 @@ _feature_flag_dir          equ (1 shl _feature_bit_dir         )
 _feature_flag_hidden       equ (1 shl _feature_bit_hidden      )
 _feature_flag_display_path equ (1 shl _feature_bit_display_path)
 _feature_flag_cmp_path     equ (1 shl _feature_bit_cmp_path    )
-_feature_flags_mask        equ (_feature_flag_file or _feature_flag_dir or _feature_flag_hidden or _feature_flag_display_path or _feature_flag_cmp_path)
+
+_rec_step_exp equ 13
+_rec_step equ (1 shl _rec_step_exp)
 
 expect_arg_any     equ 0
 expect_arg_pattern equ 1
@@ -521,6 +523,8 @@ segment readable executable
     mov [file_end], r8
 
     mov r12, qword [max_rec]
+    shl r12, _rec_step_exp
+    or r14, r12
 
     push exit_failure_corrupted_db
 
@@ -528,7 +532,7 @@ segment readable executable
 
     .query_rec:
 
-        dec r12
+        sub r14, _rec_step
         js .query_skip_dir_name
 
         .query_loop:
@@ -641,7 +645,7 @@ segment readable executable
     .query_ret:
 
       inc r13
-      inc r12
+      add r14, _rec_step
 
       ret
 
@@ -977,6 +981,8 @@ segment readable executable
       mov [file_end], r8
 
       mov r12, qword [max_rec]
+      shl r12, _rec_step_exp
+      or r14, r12
 
       push exit_failure_corrupted_db
 
@@ -984,7 +990,7 @@ segment readable executable
 
       .rec:
 
-        dec r12
+        sub r14, _rec_step
         js .skip_dir_name
 
         .loop:
@@ -1069,7 +1075,7 @@ segment readable executable
       .ret:
 
         inc r13
-        inc r12
+        add r14, _rec_step
 
         ret
 
@@ -1120,7 +1126,7 @@ segment readable executable
       .skip_dir_name:
 
         add rsp, 16
-        inc r12
+        add r14, _rec_step
         mov rbp, rbx
 
         xor ebx, ebx
