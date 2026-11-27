@@ -584,6 +584,7 @@ segment readable executable
       sub rcx, rdi
 
       mov r9, rcx
+      mov r10, rdi
       mov r11, qword [query]
       mov rdx, qword [query_size]
       mov al, byte [r11]
@@ -591,11 +592,13 @@ segment readable executable
 
       .query_cmp_loop:
 
+        mov rdi, r10
         mov rcx, r9
         repne scasb
         test rcx, rcx
         jz .query_skip_write
         mov r9, rcx
+        mov r10, rdi
 
         cmp rcx, rdx
         jb .query_skip_write
